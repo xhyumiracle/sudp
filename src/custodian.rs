@@ -1,0 +1,267 @@
+//! `Custodian` — façade over the three phases.
+//!
+//! Most deployments interact only with this type. It owns the freshness pool,
+//! the authenticator-verification context, the redeemer-policy decision, and
+//! the clock; it delegates crypto to the [`PrimitiveSuite`] and protocol logic
+//! to the [`phases`] modules.
+//!
+//! Sealed-state persistence is intentionally **not** owned by `Custodian` —
+//! atomic write semantics (paper §5.6 III.3) are a deployment concern. The
+//! façade returns the new `SealedState` and leaves I/O to the caller.
+
+use core::marker::PhantomData;
+
+use crate::freshness::{FreshnessStore, FreshnessToken, InMemoryFreshness};
+use crate::grant::{Grant, RedeemedGrant};
+use crate::phases::{
+    consumption::{
+        add_credential_after_lifecycle, execute_export, execute_lifecycle, execute_use, open,
+        remove_credential_after_lifecycle, ExportArtifact, LifecycleOutput, Mutation, OpenedState,
+    },
+    grant::{redeem, RedeemInputs, RedeemerPolicy},
+    setup::{run as run_setup, SetupInputs, SetupOutputs},
+};
+use crate::primitives::{Authenticator, PrimitiveSuite};
+use crate::state::{ProtectedState, SealedState};
+use crate::Result;
+
+/// Custodian instance.
+///
+/// Type parameters:
+/// - `S`: primitive suite (`Hash`, `Kdf`, `Aead`, `KeyWrap`, `Csprng`).
+/// - `A`: authenticator backend (`Authenticator` trait — WebAuthn by default
+///   via `passkey::WebAuthn`).
+/// - `F`: freshness store. Defaults to in-memory.
+pub struct Custodian<S, A, F = InMemoryFreshness<<S as PrimitiveSuite>::Csprng>>
+where
+    S: PrimitiveSuite,
+    A: Authenticator,
+    F: FreshnessStore,
+{
+    /// Identity of this custodian (used to check `o.bind.redeemer`). `None`
+    /// disables the redeemer check (single-tenant deployment).
+    pub identity: Option<String>,
+    /// Maximum `iat` skew, in seconds. Defaults to 300.
+    pub iat_skew_secs: u64,
+    /// Freshness store `S` (paper §5.4 I.3).
+    pub freshness: F,
+    _marker: PhantomData<(S, A)>,
+}
+
+#[cfg(feature = "std-primitives")]
+impl<S, A> Custodian<S, A>
+where
+    S: PrimitiveSuite<Csprng = crate::primitives::OsCsprng>,
+    A: Authenticator,
+{
+    /// New custodian with an in-memory freshness pool. `identity` is
+    /// `o.bind.redeemer`.
+    pub fn new(identity: impl Into<String>) -> Self {
+        Self {
+            identity: Some(identity.into()),
+            iat_skew_secs: 300,
+            freshness: InMemoryFreshness::default(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<S, A, F> Custodian<S, A, F>
+where
+    S: PrimitiveSuite,
+    A: Authenticator,
+    F: FreshnessStore,
+{
+    /// Custom-freshness-store constructor.
+    pub fn with_freshness(identity: impl Into<String>, freshness: F) -> Self {
+        Self {
+            identity: Some(identity.into()),
+            iat_skew_secs: 300,
+            freshness,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Disable the `o.bind.redeemer` check (e.g. single-tenant deployment).
+    pub fn without_redeemer_check(mut self) -> Self {
+        self.identity = None;
+        self
+    }
+
+    /// Phase I — build `Σ_0`.
+    pub fn setup(
+        &self,
+        protected: ProtectedState,
+        enrollment: A::Enrollment,
+        prf_salt: Vec<u8>,
+        wrapping_key: crate::grant::WrappingKey,
+        auth_context: &A::Context,
+    ) -> Result<SealedState> {
+        let out: SetupOutputs = run_setup::<S, A>(
+            SetupInputs {
+                protected,
+                enrollment,
+                prf_salt,
+                wrapping_key,
+            },
+            auth_context,
+        )?;
+        Ok(out.sealed)
+    }
+
+    /// Phase II.1 — issue a fresh `r` token.
+    pub fn issue_freshness(&mut self) -> FreshnessToken {
+        self.freshness.issue()
+    }
+
+    /// Phase II.3 — redeem a grant.
+    pub fn redeem_grant(
+        &mut self,
+        grant: Grant<A>,
+        auth_context: &A::Context,
+        sealed: &SealedState,
+        now_unix: u64,
+    ) -> Result<RedeemedGrant> {
+        let redeemer = match &self.identity {
+            Some(id) => RedeemerPolicy::Equals(id.as_str()),
+            None => RedeemerPolicy::AnyAccepted,
+        };
+        redeem::<S, A, F>(
+            RedeemInputs {
+                grant,
+                auth_context,
+                redeemer,
+                iat_skew_secs: self.iat_skew_secs,
+                now_unix,
+            },
+            &mut self.freshness,
+            sealed,
+        )
+    }
+
+    /// Phase III.0 — open the sealed state.
+    pub fn open(&self, redeemed: &RedeemedGrant, sealed: &SealedState) -> Result<OpenedState> {
+        open::<S>(redeemed, sealed)
+    }
+
+    /// Phase III.1 — `use`.
+    pub fn execute_use<R, H>(
+        &self,
+        redeemed: &RedeemedGrant,
+        sealed: &SealedState,
+        handler: H,
+    ) -> Result<R>
+    where
+        H: FnOnce(&str, &[u8]) -> Result<R>,
+    {
+        execute_use::<S, H, R>(redeemed, sealed, handler)
+    }
+
+    /// Phase III.2 — `export`.
+    pub fn execute_export<H>(
+        &self,
+        redeemed: &RedeemedGrant,
+        sealed: &SealedState,
+        seal_for_recipient: H,
+    ) -> Result<ExportArtifact>
+    where
+        H: FnOnce(&[u8; 32], &[u8]) -> Result<ExportArtifact>,
+    {
+        execute_export::<S, H>(redeemed, sealed, seal_for_recipient)
+    }
+
+    /// Phase III.3 — lifecycle (write / rotate). For `enroll` and `revoke`
+    /// use [`Self::execute_enroll`] / [`Self::execute_revoke`].
+    ///
+    /// Returns only the new sealed state; the freshly-sampled `K'` is dropped
+    /// (zeroized) immediately. If you need `K'` (e.g. to wrap an extra
+    /// credential entry under it) call the free function
+    /// [`crate::phases::consumption::execute_lifecycle`] directly.
+    pub fn execute_lifecycle(
+        &self,
+        redeemed: &RedeemedGrant,
+        sealed: &SealedState,
+        next_prf_salt: &[u8],
+        mutation: Box<Mutation>,
+    ) -> Result<SealedState> {
+        Ok(execute_lifecycle::<S>(redeemed, sealed, next_prf_salt, mutation)?.sealed_state)
+    }
+
+    /// Phase III.3 — `enroll`: lifecycle followed by attaching the new
+    /// credential to `Reg` and `Σ.credentials`.
+    ///
+    /// The new credential's wrapping key `W_+` enters `M.peers` inside the
+    /// lifecycle mutation so subsequent rotations can rewrap `K` under it;
+    /// the new credential's `K̂_+` is wrapped under the same `K'` produced
+    /// by this lifecycle step (no re-open needed).
+    #[allow(clippy::too_many_arguments)]
+    pub fn execute_enroll(
+        &self,
+        redeemed: &RedeemedGrant,
+        sealed: &SealedState,
+        next_prf_salt: &[u8],
+        new_enrollment: A::Enrollment,
+        new_prf_salt: Vec<u8>,
+        new_wrapping_key: crate::grant::WrappingKey,
+        auth_context: &A::Context,
+    ) -> Result<SealedState> {
+        let new_cred = A::verify_enrollment(&new_enrollment, auth_context)?;
+        let new_credential_id = new_cred.credential_id;
+        let new_public_key = new_cred.public_key;
+
+        let new_wrapping_key_for_peer = new_wrapping_key.clone();
+        let new_credential_id_for_peer = new_credential_id.clone();
+
+        let LifecycleOutput {
+            sealed_state,
+            k_prime,
+        } = execute_lifecycle::<S>(
+            redeemed,
+            sealed,
+            next_prf_salt,
+            Box::new(move |m: &mut ProtectedState| {
+                let cid_b64 =
+                    base64::engine::general_purpose::STANDARD.encode(&new_credential_id_for_peer);
+                m.peers.insert(cid_b64, new_wrapping_key_for_peer);
+                Ok(())
+            }),
+        )?;
+
+        add_credential_after_lifecycle::<S, A>(
+            sealed_state,
+            new_credential_id,
+            new_public_key,
+            new_prf_salt,
+            new_wrapping_key,
+            &k_prime,
+        )
+    }
+
+    /// Phase III.3 — `revoke`: lifecycle followed by removing the target
+    /// credential from `Reg`, `Σ.credentials`, and `M.peers`.
+    pub fn execute_revoke(
+        &self,
+        redeemed: &RedeemedGrant,
+        sealed: &SealedState,
+        next_prf_salt: &[u8],
+        revoked_credential_id: Vec<u8>,
+    ) -> Result<SealedState> {
+        let revoked_for_peer = revoked_credential_id.clone();
+        let LifecycleOutput { sealed_state, .. } = execute_lifecycle::<S>(
+            redeemed,
+            sealed,
+            next_prf_salt,
+            Box::new(move |m: &mut ProtectedState| {
+                let cid_b64 = base64::engine::general_purpose::STANDARD.encode(&revoked_for_peer);
+                m.peers.remove(&cid_b64);
+                Ok(())
+            }),
+        )?;
+        Ok(remove_credential_after_lifecycle(
+            sealed_state,
+            &revoked_credential_id,
+        ))
+    }
+}
+
+use base64::Engine;
