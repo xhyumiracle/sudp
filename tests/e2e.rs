@@ -1412,3 +1412,243 @@ fn canonical_accepts_integers_strings_in_scope() {
     let bytes = o.canonical_bytes().unwrap();
     assert!(!bytes.is_empty());
 }
+
+// ── execute_export_to_requester tests ────────────────────────────────────
+
+fn op_export_to_requester(target: &str, redeemer: &str) -> Operation {
+    Operation {
+        act: Act {
+            kind: ActType::Export,
+            target: target.into(),
+            scope: serde_json::json!({}),
+        },
+        bind: Bind {
+            redeemer: redeemer.into(),
+            recipient: None, // signals ownership-transfer mode
+        },
+        valid: Valid {
+            iat: 1_000_000,
+            exp: Some(1_000_000 + 600),
+        },
+    }
+}
+
+#[test]
+fn export_to_requester_returns_plaintext_to_caller() {
+    // The SaaS-custodian shape: agent over TLS asks for s_o, custodian
+    // returns it plain. ActType::Export + bind.recipient = None.
+    let credential_id = b"cred-otr".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0x80u8; 32]);
+    let prf_salt = vec![0x81u8; 32];
+
+    let mut protected = ProtectedState::new();
+    protected.put_target("env.api_key", b"sk_live_owned_by_requester".to_vec());
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR");
+    let sealed = custodian
+        .setup(
+            protected,
+            MockEnrollment {
+                credential_id: credential_id.clone(),
+                secret: auth_secret.clone(),
+            },
+            prf_salt,
+            wrapping_key.clone(),
+            &(),
+        )
+        .unwrap();
+
+    let r = custodian.issue_freshness();
+    let o = op_export_to_requester("env.api_key", "c-OTR");
+    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let grant = Grant::<MockAuthenticator> {
+        o,
+        r: r.to_vec(),
+        credential_id: credential_id.clone(),
+        wrapping_key: wrapping_key.clone(),
+        assertion: sign(&auth_secret, &credential_id, &beta),
+        opt: GrantOpt::default(),
+    };
+    let redeemed = custodian
+        .redeem_grant(grant, &(), &sealed, 1_000_100)
+        .unwrap();
+
+    // Ownership-transfer dispatch hands s_o to the handler.
+    let observed: Vec<u8> = custodian
+        .execute_export_to_requester(redeemed, &sealed, |target, s_o| {
+            assert_eq!(target, "env.api_key");
+            Ok(s_o.to_vec())
+        })
+        .unwrap();
+    assert_eq!(observed, b"sk_live_owned_by_requester");
+}
+
+#[test]
+fn export_to_requester_rejects_when_recipient_is_some() {
+    // If bind.recipient is Some, the operation is KEM-sealed mode — the
+    // wrong dispatch function is selected. Crate must reject.
+    use sudp::RecipientPk;
+
+    let credential_id = b"cred-otr2".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0x90u8; 32]);
+    let prf_salt = vec![0x91u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR2");
+    let sealed = custodian
+        .setup(
+            ProtectedState::new(),
+            MockEnrollment {
+                credential_id: credential_id.clone(),
+                secret: auth_secret.clone(),
+            },
+            prf_salt,
+            wrapping_key.clone(),
+            &(),
+        )
+        .unwrap();
+
+    let r = custodian.issue_freshness();
+    let o = Operation {
+        act: Act {
+            kind: ActType::Export,
+            target: "env.x".into(),
+            scope: serde_json::json!({}),
+        },
+        bind: Bind {
+            redeemer: "c-OTR2".into(),
+            recipient: Some(RecipientPk {
+                alg: "hpke-p256".into(),
+                bytes: "ignored".into(),
+            }),
+        },
+        valid: Valid {
+            iat: 1_000_000,
+            exp: Some(1_000_000 + 600),
+        },
+    };
+    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let grant = Grant::<MockAuthenticator> {
+        o,
+        r: r.to_vec(),
+        credential_id: credential_id.clone(),
+        wrapping_key: wrapping_key.clone(),
+        assertion: sign(&auth_secret, &credential_id, &beta),
+        opt: GrantOpt::default(),
+    };
+    let redeemed = custodian
+        .redeem_grant(grant, &(), &sealed, 1_000_100)
+        .unwrap();
+
+    let res = custodian.execute_export_to_requester(redeemed, &sealed, |_, _| Ok(()));
+    assert!(matches!(res, Err(sudp::Error::Malformed(_))));
+}
+
+#[test]
+fn execute_export_kem_rejects_when_recipient_is_none() {
+    // Inverse direction: ownership-transfer-shaped op routed to the
+    // KEM dispatch path must fail with MissingRecipient.
+    let credential_id = b"cred-otr3".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0xA0u8; 32]);
+    let prf_salt = vec![0xA1u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR3");
+    let sealed = custodian
+        .setup(
+            ProtectedState::new(),
+            MockEnrollment {
+                credential_id: credential_id.clone(),
+                secret: auth_secret.clone(),
+            },
+            prf_salt,
+            wrapping_key.clone(),
+            &(),
+        )
+        .unwrap();
+
+    let r = custodian.issue_freshness();
+    let o = op_export_to_requester("env.x", "c-OTR3");
+    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let grant = Grant::<MockAuthenticator> {
+        o,
+        r: r.to_vec(),
+        credential_id: credential_id.clone(),
+        wrapping_key: wrapping_key.clone(),
+        assertion: sign(&auth_secret, &credential_id, &beta),
+        opt: GrantOpt::default(),
+    };
+    let redeemed = custodian
+        .redeem_grant(grant, &(), &sealed, 1_000_100)
+        .unwrap();
+
+    let res = custodian.execute_export(redeemed, &sealed, |_, _| {
+        Ok(sudp::phases::consumption::ExportArtifact {
+            encapsulated_key: vec![],
+            sealed_payload: vec![],
+        })
+    });
+    assert!(matches!(res, Err(sudp::Error::MissingRecipient)));
+}
+
+#[test]
+fn redeem_accepts_export_with_no_recipient() {
+    // Phase II.3 no longer rejects Export + recipient=None — the choice of
+    // dispatch mode is deferred to the execute_* function the caller picks.
+    let credential_id = b"cred-otr4".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0xB0u8; 32]);
+    let prf_salt = vec![0xB1u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR4");
+    let sealed = custodian
+        .setup(
+            ProtectedState::new(),
+            MockEnrollment {
+                credential_id: credential_id.clone(),
+                secret: auth_secret.clone(),
+            },
+            prf_salt,
+            wrapping_key.clone(),
+            &(),
+        )
+        .unwrap();
+
+    let r = custodian.issue_freshness();
+    let o = op_export_to_requester("env.x", "c-OTR4");
+    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let grant = Grant::<MockAuthenticator> {
+        o,
+        r: r.to_vec(),
+        credential_id: credential_id.clone(),
+        wrapping_key: wrapping_key.clone(),
+        assertion: sign(&auth_secret, &credential_id, &beta),
+        opt: GrantOpt::default(),
+    };
+    // Redemption must succeed — no MissingRecipient at Phase II.3 anymore.
+    let res = custodian.redeem_grant(grant, &(), &sealed, 1_000_100);
+    assert!(res.is_ok());
+}
+
+#[test]
+fn valid_check_works_standalone() {
+    // QoL: Valid::check can be called directly without an Operation.
+    let v = Valid {
+        iat: 1_000_000,
+        exp: Some(1_000_500),
+    };
+    assert!(v.check(1_000_200, 300).is_ok());
+    assert!(matches!(
+        v.check(1_001_000, 300),
+        Err(sudp::Error::OperationExpired)
+    ));
+    let future = Valid {
+        iat: 2_000_000,
+        exp: None,
+    };
+    assert!(matches!(
+        future.check(1_000_000, 300),
+        Err(sudp::Error::OperationIatSkew)
+    ));
+}

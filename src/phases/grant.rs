@@ -8,7 +8,7 @@
 use crate::beta::{compute_beta_for_op, constant_time_eq};
 use crate::freshness::FreshnessStore;
 use crate::grant::{Grant, RedeemedGrant};
-use crate::operation::{ActType, Operation};
+use crate::operation::Operation;
 use crate::primitives::{Authenticator, Hash, PrimitiveSuite};
 use crate::state::SealedState;
 use crate::Result;
@@ -41,20 +41,23 @@ pub struct OpValidationCtx<'a> {
 /// Rules enforced (in order):
 /// 1. `o.valid` time window (expiry + `iat` skew).
 /// 2. `o.bind.redeemer` matches the custodian's identity (or skipped).
-/// 3. `o.act.kind == Export` requires `o.bind.recipient`.
 ///
-/// Note: the rotation-class `W*_next` presence check is **not** here because
-/// it depends on grant-level `opt`, which isn't part of `o`. That check
-/// stays in the per-grant pipeline.
+/// Notes on rules **not** enforced here:
+/// - Rotation-class `W*_next` presence depends on grant-level `opt`, not
+///   on `o` alone; that check stays in the per-grant pipeline.
+/// - `Export + bind.recipient = ?` is **not** validated here either: paper
+///   §5.6 III.2 admits two export modes — KEM-sealed delivery
+///   (`recipient = Some(KEM pubkey)`) and ownership-transfer to the
+///   requester (`recipient = None`). The dispatch function chosen by the
+///   caller ([`crate::phases::consumption::execute_export`] vs
+///   [`crate::phases::consumption::execute_export_to_requester`])
+///   enforces its own recipient requirement.
 pub fn validate_op_against(o: &Operation, ctx: &OpValidationCtx<'_>) -> Result<()> {
     o.check_validity(ctx.now_unix, ctx.iat_skew_secs)?;
     if let RedeemerPolicy::Equals(expected) = ctx.redeemer {
         if !constant_time_eq(o.bind.redeemer.as_bytes(), expected.as_bytes()) {
             return Err(crate::Error::RedeemerMismatch);
         }
-    }
-    if o.act.kind == ActType::Export && o.bind.recipient.is_none() {
-        return Err(crate::Error::MissingRecipient);
     }
     Ok(())
 }

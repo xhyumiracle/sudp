@@ -16,8 +16,9 @@ use crate::grant::{Grant, RedeemedGrant};
 use crate::operation::Operation;
 use crate::phases::{
     consumption::{
-        add_credential_after_lifecycle, execute_export, execute_lifecycle, execute_use, open,
-        remove_credential_after_lifecycle, ExportArtifact, LifecycleOutput, Mutation, OpenedState,
+        add_credential_after_lifecycle, execute_export, execute_export_to_requester,
+        execute_lifecycle, execute_use, open, remove_credential_after_lifecycle, ExportArtifact,
+        LifecycleOutput, Mutation, OpenedState,
     },
     grant::{redeem, RedeemInputs, RedeemerPolicy},
     setup::{run as run_setup, SetupInputs, SetupOutputs},
@@ -217,7 +218,10 @@ where
         execute_use::<S, H, R>(redeemed, sealed, handler)
     }
 
-    /// Phase III.2 — `export`. Consumes `redeemed`.
+    /// Phase III.2 — `export` (KEM-sealed delivery). Consumes `redeemed`.
+    /// `o.bind.recipient` MUST be `Some`. For ownership-transfer to the
+    /// requester (`recipient = None`), see
+    /// [`Self::execute_export_to_requester`].
     pub fn execute_export<H>(
         &self,
         redeemed: RedeemedGrant,
@@ -228,6 +232,27 @@ where
         H: FnOnce(&[u8; 32], &[u8]) -> Result<ExportArtifact>,
     {
         execute_export::<S, H>(redeemed, sealed, seal_for_recipient)
+    }
+
+    /// Phase III.2 — `export` (ownership-transfer to requester `R`).
+    ///
+    /// **NOT ASU-preserving.** Paper §5.6 III.2 caveat: `s_o` leaves `T`'s
+    /// boundary in plaintext. Deployment MUST (1) surface this as
+    /// ownership-transfer in `U`'s authorization UI and (2) transport
+    /// returned bytes over an authenticated confidential channel.
+    /// See the free function
+    /// [`crate::phases::consumption::execute_export_to_requester`] for the
+    /// full rationale.
+    pub fn execute_export_to_requester<R, H>(
+        &self,
+        redeemed: RedeemedGrant,
+        sealed: &SealedState,
+        handler: H,
+    ) -> Result<R>
+    where
+        H: FnOnce(&str, &[u8]) -> Result<R>,
+    {
+        execute_export_to_requester::<S, H, R>(redeemed, sealed, handler)
     }
 
     /// Phase III.3 — lifecycle (write / rotate). For `enroll` and `revoke`

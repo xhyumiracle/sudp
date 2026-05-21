@@ -7,6 +7,30 @@ trait shapes may still move before 1.0.
 
 ## [Unreleased]
 
+### Added
+
+- `execute_export_to_requester` (and `Custodian::execute_export_to_requester`):
+  paper §5.6 III.2 ownership-transfer mode. Used when the recipient *is*
+  the requester `R` (SaaS deployments where agent talks to the custodian
+  over TLS and consumes `s_o` directly). **NOT ASU-preserving** — the
+  deployment is responsible for (1) surfacing the operation as
+  ownership-transfer in `U`'s authorization UI and (2) transporting the
+  returned bytes over an authenticated confidential channel. The crate
+  documents these obligations heavily but cannot enforce them.
+- `Valid::check(now_unix, iat_skew_secs)`: per-`Valid` validity check
+  so deployments can validate pre-built `Valid` values without round-
+  tripping through a complete `Operation`. `Operation::check_validity`
+  delegates to it.
+
+### Changed
+
+- `phases::grant::validate_op_against` no longer rejects
+  `ActType::Export + bind.recipient = None`. The recipient-mode choice
+  (KEM-sealed vs ownership-transfer) is now enforced by the dispatch
+  function the caller picks: `execute_export` requires
+  `recipient = Some`, `execute_export_to_requester` requires
+  `recipient = None`.
+
 ## [0.1.0] — 2026-05-21
 
 Initial release.

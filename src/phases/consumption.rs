@@ -110,17 +110,25 @@ pub struct ExportArtifact {
     pub sealed_payload: Vec<u8>,
 }
 
-/// Phase III.2 — `export`: seal `s_o` under a recipient public key.
+/// Phase III.2 — `export` (KEM-sealed delivery to a third-party recipient).
 ///
-/// The KEM and KDF stitching is realised by the caller via the `seal_for_recipient`
-/// closure, so deployments can plug in HPKE (the standard profile) or any
-/// IND-CCA2 KEM. The closure is invoked with:
+/// Standard ASU-preserving export per paper §5.6 III.2: `s_o` leaves `T`
+/// only in a form cryptographically protected for the recipient identified
+/// by `o.bind.recipient`. Use this when the recipient lives **outside `R`'s
+/// trust boundary** (a downstream service, another device, a specialised
+/// sub-agent).
+///
+/// The KEM and KDF stitching is realised by the caller via the
+/// `seal_for_recipient` closure, so deployments can plug in HPKE (the
+/// standard profile) or any IND-CCA2 KEM. The closure is invoked with:
 /// - `op_hash`: `H(canonical(o))` so it can bind both KDF info and AEAD AD.
 /// - `s_o`: the secret bytes to seal.
 ///
 /// It returns the [`ExportArtifact`].
 ///
-/// `act.kind` MUST be `ActType::Export` and `o.bind.recipient` MUST be Some.
+/// `act.kind` MUST be `ActType::Export` and `o.bind.recipient` MUST be
+/// `Some`. For ownership-transfer to `R` (the requester), see
+/// [`execute_export_to_requester`].
 ///
 /// Consumes `redeemed` by value — see [`execute_use`] for the rationale.
 pub fn execute_export<S, F>(
@@ -146,6 +154,65 @@ where
     let op_hash = <S::Hash as crate::primitives::Hash>::hash(&op_canonical);
 
     seal_for_recipient(&op_hash, s_o)
+}
+
+/// Phase III.2 — `export` (ownership-transfer to the requester `R`).
+///
+/// Paper §5.6 III.2 explicit caveat:
+///
+/// > "if U authorizes an export with `bind.recipient = R`, the operation
+/// > is a deliberate ownership-transfer that falls outside SUDP's CRC and
+/// > ASU non-disclosure guarantees and must be surfaced as such at
+/// > authorization time."
+///
+/// In this mode `T` hands `s_o` to `R` as plaintext — the secret leaves
+/// `T`'s boundary. KEM-sealing adds no security when `R` is the final
+/// consumer (the user is deliberately transferring ownership), so the
+/// crate skips it; the caller is responsible for transporting the bytes
+/// over an authenticated confidential channel (TLS / mTLS).
+///
+/// ## Required deployment obligations
+///
+/// 1. **Authorization-time disclosure**: `U`'s authorization UI MUST
+///    surface this operation as **"ownership-transfer to the requester"**
+///    — distinct from the standard `execute_export` ("seal for recipient
+///    X"). The user must consciously authorize giving the secret away,
+///    not delegating its use.
+/// 2. **Transport**: the closure's returned bytes contain `s_o` in
+///    plaintext. The deployment MUST transport them over an authenticated
+///    confidential channel.
+///
+/// The crate cannot enforce either obligation. They are explicitly stated
+/// here so a paper-faithful integration is audit-traceable.
+///
+/// ## API shape
+///
+/// `act.kind` MUST be `ActType::Export`; `bind.recipient` MUST be `None`.
+/// The closure receives `(target, s_o)` and returns whatever value the
+/// deployment wants in the response (typically `Vec<u8>` for an HTTP body
+/// or a wrapped string).
+///
+/// Consumes `redeemed` by value (paper §6.4 one-shot execution).
+pub fn execute_export_to_requester<S, F, R>(
+    redeemed: RedeemedGrant,
+    sealed: &SealedState,
+    handler: F,
+) -> Result<R>
+where
+    S: PrimitiveSuite,
+    F: FnOnce(&str, &[u8]) -> Result<R>,
+{
+    if redeemed.o.act.kind != ActType::Export {
+        return Err(crate::Error::ActTypeMismatch("expected ActType::Export"));
+    }
+    if redeemed.o.bind.recipient.is_some() {
+        return Err(crate::Error::Malformed(
+            "execute_export_to_requester: bind.recipient must be None (KEM-sealed delivery uses execute_export instead)",
+        ));
+    }
+    let opened = open::<S>(&redeemed, sealed)?;
+    let s_o = opened.m.target(&redeemed.o.act.target)?;
+    handler(&redeemed.o.act.target, s_o)
 }
 
 /// Paper §5.6 III.2 standard composition: `(K_d, ct_d) ← Encap(pk)`;

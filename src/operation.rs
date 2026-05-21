@@ -118,6 +118,26 @@ pub struct Valid {
     pub exp: Option<u64>,
 }
 
+impl Valid {
+    /// Time-window check. Rejects if `exp` is in the past or `iat` is more
+    /// than `iat_skew_secs` in the future.
+    ///
+    /// Lives on `Valid` (rather than only on `Operation`) so deployments can
+    /// validate pre-built `Valid` values (grant inspection, request
+    /// pre-flight) without round-tripping through a complete `Operation`.
+    pub fn check(&self, now_unix: u64, iat_skew_secs: u64) -> Result<()> {
+        if self.iat > now_unix + iat_skew_secs {
+            return Err(crate::Error::OperationIatSkew);
+        }
+        if let Some(exp) = self.exp {
+            if exp < now_unix {
+                return Err(crate::Error::OperationExpired);
+            }
+        }
+        Ok(())
+    }
+}
+
 /// The canonical operation tuple.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Operation {
@@ -130,17 +150,9 @@ pub struct Operation {
 }
 
 impl Operation {
-    /// Time-window check. Rejects if `exp` is in the past or `iat` is more
-    /// than `iat_skew_secs` in the future.
+    /// Time-window check; delegates to [`Valid::check`].
     pub fn check_validity(&self, now_unix: u64, iat_skew_secs: u64) -> Result<()> {
-        if self.valid.iat > now_unix + iat_skew_secs {
-            return Err(crate::Error::OperationIatSkew);
-        }
-        if let Some(exp) = self.valid.exp {
-            if exp < now_unix {
-                return Err(crate::Error::OperationExpired);
-            }
-        }
+        self.valid.check(now_unix, iat_skew_secs)?;
         Ok(())
     }
 
