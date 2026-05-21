@@ -14,8 +14,14 @@ use serde::{Deserialize, Serialize};
 use crate::Result;
 
 /// Semantic class of the secret-backed action. Drives Phase III dispatch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Marked `#[non_exhaustive]` so future canonical variants can be added
+/// without a breaking change, and so external profiles can use the
+/// [`Custom`](ActType::Custom) variant to extend the dispatch vocabulary
+/// per paper §5.6 ("Extensibility of the dispatch vocabulary").
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum ActType {
     /// Non-extracting consumption: spend the secret inside `T`. Phase III.1.
     Use,
@@ -29,12 +35,27 @@ pub enum ActType {
     Enroll,
     /// Remove a credential. Phase III.3.
     Revoke,
+    /// Profile-defined dispatch type (paper §5.6 last paragraph).
+    ///
+    /// The string is the profile-specific type name (e.g. `"co-sign"`,
+    /// `"stream-decrypt"`). Custom types preserve β/σ verification at
+    /// Phase II.3 unchanged; the deployment is responsible for Phase III
+    /// dispatch — sudp's built-in `execute_use`/`execute_export`/
+    /// `execute_lifecycle` will reject them with `ActTypeMismatch`.
+    ///
+    /// Custom types are *not* treated as rotation-class by default. A
+    /// profile that needs a rotation-class custom type must either use one
+    /// of the canonical rotation variants (Write/Rotate/Enroll/Revoke) or
+    /// intercept the grant before sudp's redemption layer.
+    Custom(String),
 }
 
 impl ActType {
     /// True iff this act class mutates sealed state and therefore requires
     /// `W*_next` in [`crate::GrantOpt`] (paper §5.6 III.3, §5.7).
-    pub fn is_rotation_class(self) -> bool {
+    ///
+    /// Returns `false` for [`Self::Custom`]; see the variant docs.
+    pub fn is_rotation_class(&self) -> bool {
         matches!(
             self,
             ActType::Write | ActType::Rotate | ActType::Enroll | ActType::Revoke

@@ -45,6 +45,7 @@ pub mod phases;
 pub mod primitives;
 pub mod state;
 pub mod wire;
+pub mod xdevice;
 
 #[cfg(feature = "webauthn")]
 #[cfg_attr(docsrs, doc(cfg(feature = "webauthn")))]
@@ -53,7 +54,7 @@ pub mod passkey;
 pub mod prelude;
 
 pub use batch::{BatchGrant, BatchOperations, RedeemedBatch};
-pub use custodian::Custodian;
+pub use custodian::{ConveyanceCredential, ConveyancePayload, Custodian};
 pub use error::{Error, Result};
 pub use freshness::{FreshnessStore, FreshnessToken, InMemoryFreshness};
 pub use grant::{Grant, GrantOpt, RedeemedGrant, WrappingKey};

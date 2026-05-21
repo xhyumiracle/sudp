@@ -9,7 +9,7 @@
 
 pub use crate::batch::{BatchGrant, BatchOperations, RedeemedBatch};
 pub use crate::beta::{compute_beta, compute_beta_for_op};
-pub use crate::custodian::Custodian;
+pub use crate::custodian::{ConveyanceCredential, ConveyancePayload, Custodian};
 pub use crate::error::{Error, Result};
 pub use crate::freshness::{FreshnessStore, InMemoryFreshness};
 pub use crate::grant::{Grant, GrantOpt, RedeemedGrant, WrappingKey};

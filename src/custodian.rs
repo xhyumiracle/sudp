@@ -13,6 +13,7 @@ use core::marker::PhantomData;
 
 use crate::freshness::{FreshnessStore, FreshnessToken, InMemoryFreshness};
 use crate::grant::{Grant, RedeemedGrant};
+use crate::operation::Operation;
 use crate::phases::{
     consumption::{
         add_credential_after_lifecycle, execute_export, execute_lifecycle, execute_use, open,
@@ -24,6 +25,37 @@ use crate::phases::{
 use crate::primitives::{Authenticator, PrimitiveSuite};
 use crate::state::{ProtectedState, SealedState};
 use crate::Result;
+
+use serde::{Deserialize, Serialize};
+
+/// Phase II.1 conveyance payload `T → U` (paper §5.5 II.1).
+///
+/// Carries `(o, r, {(cid_c, η_c)})`. `o` is the operation `U` will render
+/// and sign; `r` is the single-use freshness token; the credential list is
+/// the public material `U` needs to drive the authenticator (allowList +
+/// per-credential salt).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConveyancePayload {
+    /// The proposed operation.
+    pub o: Operation,
+    /// Freshness token (raw 32 bytes).
+    #[serde(with = "crate::wire::b64bytes")]
+    pub r: Vec<u8>,
+    /// Public per-credential material `(cid_c, η_c)` for every enrolled
+    /// credential.
+    pub credentials: Vec<ConveyanceCredential>,
+}
+
+/// One credential's public material inside a [`ConveyancePayload`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConveyanceCredential {
+    /// Credential identifier `cid_c`.
+    #[serde(with = "crate::wire::b64bytes")]
+    pub credential_id: Vec<u8>,
+    /// PRF salt `η_c`.
+    #[serde(with = "crate::wire::b64bytes")]
+    pub prf_salt: Vec<u8>,
+}
 
 /// Custodian instance.
 ///
@@ -112,6 +144,33 @@ where
     /// Phase II.1 — issue a fresh `r` token.
     pub fn issue_freshness(&mut self) -> FreshnessToken {
         self.freshness.issue()
+    }
+
+    /// Phase II.1 — one-shot conveyance helper.
+    ///
+    /// Issues a fresh `r` and returns the full payload `T → U`:
+    /// `(o, r, {(cid_c, η_c)})` (paper §5.5 II.1). The caller forwards this
+    /// payload to `U` over the authenticated channel; `U` uses the
+    /// `credentials` list to drive an authenticator allowList and renders
+    /// `o` before signing β.
+    ///
+    /// This is purely a convenience wrapper around [`Self::issue_freshness`]
+    /// and [`SealedState::credential_iter`]; deployments that already track
+    /// `r` and credential metadata separately can ignore it.
+    pub fn build_conveyance(&mut self, o: Operation, sealed: &SealedState) -> ConveyancePayload {
+        let r = self.freshness.issue();
+        let credentials = sealed
+            .credential_iter()
+            .map(|(cid, salt)| ConveyanceCredential {
+                credential_id: cid.to_vec(),
+                prf_salt: salt.to_vec(),
+            })
+            .collect();
+        ConveyancePayload {
+            o,
+            r: r.to_vec(),
+            credentials,
+        }
     }
 
     /// Phase II.3 — redeem a grant.

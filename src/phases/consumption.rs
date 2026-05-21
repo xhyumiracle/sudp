@@ -17,7 +17,7 @@ use zeroize::Zeroizing;
 use crate::grant::{RedeemedGrant, WrappingKey};
 use crate::operation::ActType;
 use crate::phases::setup::seal_ad;
-use crate::primitives::{Aead, Csprng, KeyWrap, PrimitiveSuite, WrapBinding};
+use crate::primitives::{Aead, Csprng, Kdf, Kem, KeyWrap, PrimitiveSuite, WrapBinding};
 use crate::state::{ProtectedState, SealedCredential, SealedState};
 use crate::Result;
 
@@ -135,6 +135,46 @@ where
     let op_hash = <S::Hash as crate::primitives::Hash>::hash(&op_canonical);
 
     seal_for_recipient(&op_hash, s_o)
+}
+
+/// Paper §5.6 III.2 standard composition: `(K_d, ct_d) ← Encap(pk)`;
+/// `k_d ← KDF(K_d; ⊥, H(o))`; `δ ← Enc_{k_d}(s_o; H(o))`.
+///
+/// Use this as the body of [`execute_export`]'s closure when you want the
+/// paper-standard stitching of `Kem + Kdf + Aead`. Plug in any [`Kem`]
+/// backend (the crate ships an HPKE-DHKEM realisation behind the `hpke`
+/// feature; see `sudp::primitives::HpkeDhKem`).
+pub fn seal_export<S: PrimitiveSuite, K: Kem>(
+    recipient_pk: &K::PublicKey,
+    op_hash: &[u8; 32],
+    s_o: &[u8],
+) -> Result<ExportArtifact> {
+    let (k_d_raw, ct_d) =
+        K::encap(recipient_pk).map_err(|_| crate::Error::Primitive("KEM encap failed"))?;
+    let mut k_d = Zeroizing::new(vec![0u8; S::Aead::KEY_LEN]);
+    S::Kdf::derive(&k_d_raw, &[], op_hash, &mut k_d)?;
+    let payload = S::Aead::seal(&k_d, s_o, op_hash)?;
+    Ok(ExportArtifact {
+        encapsulated_key: ct_d,
+        sealed_payload: payload,
+    })
+}
+
+/// Recipient-side inverse of [`seal_export`].
+///
+/// Recovers `s_o` from a recipient-protected delivery using the recipient's
+/// secret key. The recipient lives outside `T` and outside `R`'s trust
+/// boundary — that's the whole point of `Phase III.2`.
+pub fn open_export<S: PrimitiveSuite, K: Kem>(
+    recipient_sk: &K::SecretKey,
+    op_hash: &[u8; 32],
+    artifact: &ExportArtifact,
+) -> Result<Vec<u8>> {
+    let k_d_raw = K::decap(recipient_sk, &artifact.encapsulated_key)
+        .map_err(|_| crate::Error::Primitive("KEM decap failed"))?;
+    let mut k_d = Zeroizing::new(vec![0u8; S::Aead::KEY_LEN]);
+    S::Kdf::derive(&k_d_raw, &[], op_hash, &mut k_d)?;
+    S::Aead::open(&k_d, &artifact.sealed_payload, op_hash)
 }
 
 // ── III.3 lifecycle ───────────────────────────────────────────────────────

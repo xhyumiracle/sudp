@@ -15,6 +15,10 @@ mod kdf;
 mod kem;
 mod wrap;
 
+#[cfg(feature = "hpke")]
+#[cfg_attr(docsrs, doc(cfg(feature = "hpke")))]
+mod hpke_backend;
+
 pub use aead::Aead;
 pub use auth::{Authenticator, AuthenticatorContext, EnrolledCredential};
 pub use csprng::Csprng;
@@ -23,6 +27,10 @@ pub use hash::Hash;
 pub use kdf::Kdf;
 pub use kem::{Kem, KemError};
 pub use wrap::{KeyWrap, WrapBinding};
+
+#[cfg(feature = "hpke")]
+#[cfg_attr(docsrs, doc(cfg(feature = "hpke")))]
+pub use hpke_backend::{gen_keypair, DhKemP256HkdfSha256, HpkeDhKem};
 
 #[cfg(feature = "std-primitives")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std-primitives")))]

@@ -29,7 +29,7 @@ operations `U` has authorized. Reusable authority does not cross `R`'s boundary.
 
 Pre-1.0. MSRV 1.74. Wire format and trait shapes may move before the 1.0 cut.
 
-- 17 unit + 8 end-to-end tests pass on the default profile.
+- 17 unit + 13 end-to-end tests pass (incl. HPKE export, cross-device envelope, custom act-type extension, lifecycle rotate/enroll/revoke).
 - `cargo clippy --all-targets` is clean.
 - `cargo check --no-default-features` builds.
 
@@ -83,14 +83,37 @@ lockout, revocation).
 ## Concepts
 
 - **Operation** `o = (act, bind, valid)` — the canonical U↔T contract. `act` carries the
-  semantic class (`use`, `export`, `write`, `rotate`, `enroll`, `revoke`), the `target`,
-  and adapter-canonicalized scope.
+  semantic class (`use`, `export`, `write`, `rotate`, `enroll`, `revoke`, or profile-defined
+  `Custom`), the `target`, and adapter-canonicalized scope.
 - **Grant** `G = (o, r, cid, W*, σ*, opt)` — the one-shot authorization artifact. `σ*`
   binds `β = H(DS_bind ‖ r ‖ H(o))`; `W*` arrives over the confidential `U → T` leg.
 - **Sealed state** `Σ = (C, {(cid, η, K̂)}, Reg, ver)` — what `T` persists. `Σ` alone is
   insufficient to recover `M`; an authenticator invocation is required.
-- **Custodian** — façade over the three phases: `setup`, `issue_freshness`, `redeem_grant`,
-  `execute_use`, `execute_export`, `execute_lifecycle`, `execute_enroll`, `execute_revoke`.
+- **Custodian** — façade over the three phases: `setup`, `issue_freshness`,
+  `build_conveyance`, `redeem_grant`, `execute_use`, `execute_export`,
+  `execute_lifecycle`, `execute_enroll`, `execute_revoke`.
+
+## Extensions
+
+| Extension | Module | Default? |
+|-----------|--------|---|
+| **Batch approve** (paper §6) — `ops = (o_1, …, o_n)` under one σ | `sudp::batch` | ✓ |
+| **Lifecycle**: `Write` / `Rotate` / `Enroll` / `Revoke` (§5.6 III.3, §5.7) | `Custodian::execute_*` | ✓ |
+| **Conveyance payload** `(o, r, {(cid_c, η_c)})` (§5.5 II.1) | `Custodian::build_conveyance` | ✓ |
+| **Recipient-protected export** (§5.6 III.2) — paper §7 standard composition | `sudp::phases::consumption::{seal_export, open_export}` | ✓ (closure-based) |
+| **HPKE-DHKEM backend** — `DhKemP256HkdfSha256` realising `Kem` | `sudp::primitives::HpkeDhKem` | feature `hpke` |
+| **Cross-device envelope** (§7.2) — `k_xd = KDF(ss; r, DS_xd_enc ‖ pk_U ‖ pk_T)` + AEAD with `AD = H(pk_U ‖ pk_T ‖ r)` | `sudp::xdevice` | ✓ |
+| **Custom act types** (§5.6 last paragraph) — `ActType::Custom(String)`; β/σ verification stays generic, deployment dispatches | `sudp::ActType::Custom` | ✓ |
+
+### What the cross-device module gives you
+
+The crate ships the **symmetric envelope** primitives — KDF stitching plus an AEAD
+sealing layer with channel-binding AD over `(pk_U, pk_T, r)`. It does *not* ship the
+ECDH key-agreement primitive (caller picks `p256::ecdh`, `x25519-dalek`, an HSM, etc.
+and passes the shared secret `ss` in) nor the `pk_T` trust establishment (signature
+under a long-term key, OOB QR, PAKE — all profile choices per paper §7.2). See
+[`tests/e2e.rs`](tests/e2e.rs)'s `xdevice_envelope_round_trips_grant` for the full
+shape with `p256::ecdh`.
 
 ## Customizing primitives
 
@@ -170,11 +193,12 @@ that implements [`FreshnessStore`](src/freshness.rs).
 
 ## Feature flags
 
-| Feature           | Default | Pulls in                                     |
-|-------------------|---------|----------------------------------------------|
-| `std-primitives`  | ✓       | `sha2`, `hkdf`, `chacha20poly1305`, `rand`   |
-| `webauthn`        | ✓       | `p256`, ES256/P-256 assertion verifier       |
-| `json-canonical`  | ✓       | reserved; JCS canonical encoder is always on |
+| Feature           | Default | Pulls in                                            |
+|-------------------|---------|-----------------------------------------------------|
+| `std-primitives`  | ✓       | `sha2`, `hkdf`, `chacha20poly1305`, `rand`          |
+| `webauthn`        | ✓       | `p256`, ES256/P-256 assertion verifier              |
+| `json-canonical`  | ✓       | reserved; JCS canonical encoder is always on        |
+| `hpke`            | ✗       | `hpke`, `rand_core` 0.9; exposes `HpkeDhKem<…>` for the `Kem` trait + `DhKemP256HkdfSha256` type alias |
 
 Disable both default features and bring your own primitives:
 
