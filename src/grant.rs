@@ -29,7 +29,7 @@ use crate::primitives::Authenticator;
 /// AEAD-as-wrap profile).
 #[derive(Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(transparent)]
-pub struct WrappingKey(pub Vec<u8>);
+pub struct WrappingKey(#[serde(with = "crate::wire::b64bytes")] pub Vec<u8>);
 
 impl core::fmt::Debug for WrappingKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

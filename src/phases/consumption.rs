@@ -77,7 +77,16 @@ pub struct OpenedState {
 /// handler is the only function that sees `s_o` from `M` for this operation.
 ///
 /// `act.kind` MUST be `ActType::Use`.
-pub fn execute_use<S, F, R>(redeemed: &RedeemedGrant, sealed: &SealedState, handler: F) -> Result<R>
+///
+/// ## One-shot consumption
+///
+/// `redeemed` is consumed **by value** to enforce paper §6.4's "one-shot
+/// execution" invariant in the type system: an approved use is a one-shot
+/// continuation, not a reusable session token. A caller that wants to retry
+/// after a transient handler failure must redeem a fresh grant (re-issue
+/// `r`, re-sign β). To inspect the operation after the call, clone
+/// `redeemed.o` *before* invoking this function.
+pub fn execute_use<S, F, R>(redeemed: RedeemedGrant, sealed: &SealedState, handler: F) -> Result<R>
 where
     S: PrimitiveSuite,
     F: FnOnce(&str, &[u8]) -> Result<R>,
@@ -85,7 +94,7 @@ where
     if redeemed.o.act.kind != ActType::Use {
         return Err(crate::Error::ActTypeMismatch("expected ActType::Use"));
     }
-    let opened = open::<S>(redeemed, sealed)?;
+    let opened = open::<S>(&redeemed, sealed)?;
     let s_o = opened.m.target(&redeemed.o.act.target)?;
     handler(&redeemed.o.act.target, s_o)
 }
@@ -112,8 +121,10 @@ pub struct ExportArtifact {
 /// It returns the [`ExportArtifact`].
 ///
 /// `act.kind` MUST be `ActType::Export` and `o.bind.recipient` MUST be Some.
+///
+/// Consumes `redeemed` by value — see [`execute_use`] for the rationale.
 pub fn execute_export<S, F>(
-    redeemed: &RedeemedGrant,
+    redeemed: RedeemedGrant,
     sealed: &SealedState,
     seal_for_recipient: F,
 ) -> Result<ExportArtifact>
@@ -128,7 +139,7 @@ where
         return Err(crate::Error::MissingRecipient);
     }
 
-    let opened = open::<S>(redeemed, sealed)?;
+    let opened = open::<S>(&redeemed, sealed)?;
     let s_o = opened.m.target(&redeemed.o.act.target)?;
 
     let op_canonical = redeemed.o.canonical_bytes()?;
@@ -217,8 +228,26 @@ pub struct LifecycleOutput {
 /// `grant.opt.wrapping_key_next` MUST be present (checked by Phase II.3).
 ///
 /// Returns both `Σ'` and `K'`; ordinary callers ignore `K'`.
+///
+/// ## One-shot consumption
+///
+/// `redeemed` is consumed by value (paper §6.4); a lifecycle mutation is not
+/// a re-runnable operation. See [`execute_use`] for the rationale.
+///
+/// ## `next_prf_salt` binding contract
+///
+/// The `next_prf_salt` parameter MUST equal the `η^next_{c*}` value the user
+/// placed inside `o.act.scope` at Phase II.2 (paper §5.5). The crate does
+/// **not** introspect `scope` to enforce this — `scope` is profile-shaped
+/// JSON opaque to sudp. If the caller passes a `next_prf_salt` that diverges
+/// from what's in `scope`, the rotation succeeds locally but the next
+/// authenticator invocation at `U` will derive a `W*` that the persisted
+/// `K̂_{c*}` cannot unwrap, locking out further grants from this credential.
+///
+/// **The deployment is responsible** for keeping `next_prf_salt` and the
+/// `η^next_{c*}` field in `o.act.scope` byte-equal.
 pub fn execute_lifecycle<S: PrimitiveSuite>(
-    redeemed: &RedeemedGrant,
+    redeemed: RedeemedGrant,
     sealed: &SealedState,
     next_prf_salt: &[u8],
     mutation: Box<Mutation>,
@@ -235,7 +264,7 @@ pub fn execute_lifecycle<S: PrimitiveSuite>(
         .ok_or(crate::Error::MissingRotationKey)?;
 
     // 1–2. Open & mutate.
-    let mut opened = open::<S>(redeemed, sealed)?;
+    let mut opened = open::<S>(&redeemed, sealed)?;
     mutation(&mut opened.m)?;
 
     // 3. Sample K'. Zeroized on scope exit (and after move into LifecycleOutput,

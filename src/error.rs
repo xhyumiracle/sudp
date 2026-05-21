@@ -49,6 +49,33 @@ pub enum Error {
     #[error("export operation requires bind.recipient")]
     MissingRecipient,
 
+    /// Attempted to revoke the credential that signed the very same grant.
+    /// Paper-level fail-safe (paper §5.7 "Lifecycle extensions"): the acting
+    /// credential cannot be the target of its own revocation invocation;
+    /// the user must authorize the revocation with a different credential.
+    #[error("acting credential cannot revoke itself")]
+    CannotRevokeSelf,
+
+    /// Revocation would leave `Σ` with zero credentials, making the protected
+    /// state permanently unrecoverable. Crate-level fail-safe.
+    #[error("revocation would orphan the sealed state (last credential)")]
+    WouldOrphanState,
+
+    /// Batch grant contained more than one rotation-class operation. A single
+    /// authenticator invocation produces a single `W*_next` and a single
+    /// `K'`, so at most one rotation-class operation can be authorized per
+    /// batch.
+    #[error("batch must contain at most one rotation-class operation")]
+    BatchMultipleRotationOps,
+
+    /// A canonical-serialization path encountered a non-integer numeric
+    /// value. Operation `scope` MUST NOT contain floats — `serde_json::Number`
+    /// floating-point representations are not byte-for-byte reproducible
+    /// across endpoints (NaN bit patterns, ±0, IEEE 754 round-trip), which
+    /// would defeat operation binding.
+    #[error("canonical encoding rejects float values")]
+    CanonicalFloatRejected,
+
     /// Caller asked for a target that does not exist in the protected state.
     #[error("target not found in protected state: {0}")]
     TargetNotFound(String),

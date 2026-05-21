@@ -203,10 +203,11 @@ where
         open::<S>(redeemed, sealed)
     }
 
-    /// Phase III.1 — `use`.
+    /// Phase III.1 — `use`. Consumes `redeemed` to enforce one-shot
+    /// execution (paper §6.4).
     pub fn execute_use<R, H>(
         &self,
-        redeemed: &RedeemedGrant,
+        redeemed: RedeemedGrant,
         sealed: &SealedState,
         handler: H,
     ) -> Result<R>
@@ -216,10 +217,10 @@ where
         execute_use::<S, H, R>(redeemed, sealed, handler)
     }
 
-    /// Phase III.2 — `export`.
+    /// Phase III.2 — `export`. Consumes `redeemed`.
     pub fn execute_export<H>(
         &self,
-        redeemed: &RedeemedGrant,
+        redeemed: RedeemedGrant,
         sealed: &SealedState,
         seal_for_recipient: H,
     ) -> Result<ExportArtifact>
@@ -232,13 +233,13 @@ where
     /// Phase III.3 — lifecycle (write / rotate). For `enroll` and `revoke`
     /// use [`Self::execute_enroll`] / [`Self::execute_revoke`].
     ///
-    /// Returns only the new sealed state; the freshly-sampled `K'` is dropped
-    /// (zeroized) immediately. If you need `K'` (e.g. to wrap an extra
-    /// credential entry under it) call the free function
-    /// [`crate::phases::consumption::execute_lifecycle`] directly.
+    /// Consumes `redeemed`. Returns only the new sealed state; the
+    /// freshly-sampled `K'` is dropped (zeroized) immediately. If you need
+    /// `K'` (e.g. to wrap an extra credential entry under it) call the free
+    /// function [`crate::phases::consumption::execute_lifecycle`] directly.
     pub fn execute_lifecycle(
         &self,
-        redeemed: &RedeemedGrant,
+        redeemed: RedeemedGrant,
         sealed: &SealedState,
         next_prf_salt: &[u8],
         mutation: Box<Mutation>,
@@ -256,7 +257,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn execute_enroll(
         &self,
-        redeemed: &RedeemedGrant,
+        redeemed: RedeemedGrant,
         sealed: &SealedState,
         next_prf_salt: &[u8],
         new_enrollment: A::Enrollment,
@@ -298,13 +299,44 @@ where
 
     /// Phase III.3 — `revoke`: lifecycle followed by removing the target
     /// credential from `Reg`, `Σ.credentials`, and `M.peers`.
+    ///
+    /// ## Crate-level fail-safes
+    ///
+    /// Two paper-level integrity invariants are enforced here before any
+    /// state mutation:
+    ///
+    /// 1. **No self-revocation** ([`Error::CannotRevokeSelf`](crate::Error::CannotRevokeSelf)).
+    ///    The acting credential (the one whose σ* signed `o`) cannot be the
+    ///    target of its own revocation invocation — the user must authorize
+    ///    a revoke with a *different* enrolled credential. This mirrors the
+    ///    WebAuthn allowList pattern: the acting credential must not be in
+    ///    the set of credentials being removed.
+    /// 2. **No orphan state** ([`Error::WouldOrphanState`](crate::Error::WouldOrphanState)).
+    ///    A revocation that would leave `Σ` with zero credentials makes the
+    ///    protected state permanently unrecoverable. The crate refuses this
+    ///    operation; the deployment must enroll at least one new credential
+    ///    before retiring the last one.
     pub fn execute_revoke(
         &self,
-        redeemed: &RedeemedGrant,
+        redeemed: RedeemedGrant,
         sealed: &SealedState,
         next_prf_salt: &[u8],
         revoked_credential_id: Vec<u8>,
     ) -> Result<SealedState> {
+        // Fail-safe 1: acting credential cannot revoke itself.
+        if revoked_credential_id == redeemed.credential_id {
+            return Err(crate::Error::CannotRevokeSelf);
+        }
+        // Fail-safe 2: count the credentials that would survive the revoke.
+        let survivors = sealed
+            .credentials
+            .iter()
+            .filter(|c| c.credential_id != revoked_credential_id)
+            .count();
+        if survivors == 0 {
+            return Err(crate::Error::WouldOrphanState);
+        }
+
         let revoked_for_peer = revoked_credential_id.clone();
         let LifecycleOutput { sealed_state, .. } = execute_lifecycle::<S>(
             redeemed,

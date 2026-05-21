@@ -147,10 +147,15 @@ impl Operation {
     /// Convenience: render as canonical bytes (paper §5.4).
     ///
     /// Both `U` and `T` must agree on these bytes. Built on the JCS-style
-    /// encoder in [`crate::canonical`].
+    /// encoder in [`crate::canonical`], in **strict** mode — float values
+    /// anywhere inside `act.scope` are rejected with
+    /// [`Error::CanonicalFloatRejected`](crate::Error::CanonicalFloatRejected).
+    /// Floats have no byte-reproducible canonical form across endpoints; if
+    /// they reached `H(o)` they'd be a substitution vector. Integers,
+    /// strings, booleans, nulls, arrays, and nested objects are fine.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         let v =
             serde_json::to_value(self).map_err(|_| crate::Error::Encoding("Operation→Value"))?;
-        Ok(crate::canonical::canonicalize(&v))
+        crate::canonical::canonicalize_strict(&v)
     }
 }

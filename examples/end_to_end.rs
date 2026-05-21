@@ -169,7 +169,7 @@ fn main() -> Result<()> {
     println!("  ρ accepted: target = {}", redeemed.o.act.target);
 
     println!("\n== Phase III.1 — Use s_o inside T's boundary ==");
-    let response_status: u16 = custodian.execute_use(&redeemed, &sealed, |target, s_o| {
+    let response_status: u16 = custodian.execute_use(redeemed, &sealed, |target, s_o| {
         println!(
             "  T sees target {} = {} bytes of secret material",
             target,

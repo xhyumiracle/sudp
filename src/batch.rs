@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::beta::compute_beta_from_canonical;
-use crate::canonical::canonicalize;
 use crate::freshness::FreshnessStore;
 use crate::grant::{GrantOpt, RedeemedGrant, WrappingKey};
 use crate::operation::Operation;
@@ -52,10 +51,11 @@ impl BatchOperations {
     }
 
     /// Canonical bytes: JCS-encoded JSON array of canonical operations.
+    /// Strict mode — see [`crate::Operation::canonical_bytes`].
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         let v = serde_json::to_value(self)
             .map_err(|_| crate::Error::Encoding("BatchOperations→Value"))?;
-        Ok(canonicalize(&v))
+        crate::canonical::canonicalize_strict(&v)
     }
 }
 
@@ -170,24 +170,17 @@ where
         return Err(crate::Error::FreshnessRejected);
     }
 
-    // 2. Validate every op.
-    if grant.ops.0.is_empty() {
-        return Err(crate::Error::Malformed("batch: empty ops"));
-    }
-    for o in &grant.ops.0 {
-        o.check_validity(now_unix, iat_skew_secs)?;
-        if let RedeemerPolicy::Equals(expected) = &redeemer {
-            if !crate::beta::constant_time_eq(o.bind.redeemer.as_bytes(), expected.as_bytes()) {
-                return Err(crate::Error::RedeemerMismatch);
-            }
-        }
-        if o.act.kind == crate::ActType::Export && o.bind.recipient.is_none() {
-            return Err(crate::Error::MissingRecipient);
-        }
-    }
+    // 2. Validate every op through the shared batch helper (enforces ≤1
+    //    rotation-class op, plus per-op rules from validate_op_against).
+    let val_ctx = crate::phases::grant::OpValidationCtx {
+        redeemer: &redeemer,
+        iat_skew_secs,
+        now_unix,
+    };
+    crate::phases::grant::validate_batch_ops(&grant.ops.0, &val_ctx)?;
 
-    // 3. Rotation requirement: if any op is rotation-class, opt.wrapping_key_next
-    // must be present.
+    // 3. Rotation requirement: if a rotation-class op is in the batch
+    //    (at most one, enforced above), opt.wrapping_key_next must be present.
     if grant.ops.0.iter().any(|o| o.act.kind.is_rotation_class())
         && grant.opt.wrapping_key_next.is_none()
     {

@@ -10,8 +10,9 @@
 
 use std::collections::BTreeMap;
 
+use base64::Engine;
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::grant::WrappingKey;
 use crate::Result;
@@ -97,16 +98,116 @@ impl ProtectedState {
         self.targets.remove(name)
     }
 
-    /// Serialise to canonical bytes for sealing under `K`.
-    pub fn to_canonical(&self) -> Result<Vec<u8>> {
-        let v = serde_json::to_value(self)
-            .map_err(|_| crate::Error::Encoding("ProtectedState→Value"))?;
-        Ok(crate::canonical::canonicalize(&v))
+    /// Serialise to canonical JCS-style JSON bytes for sealing under `K`.
+    ///
+    /// Returns a [`Zeroizing<Vec<u8>>`] so the canonical bytes (which contain
+    /// base64-encoded target plaintexts and peer wrapping keys) are wiped on
+    /// drop. The encoder writes directly into the zeroizing buffer **without
+    /// constructing an intermediate `serde_json::Value` tree** — this avoids
+    /// the prior leak path where target bytes' base64 form lived in a
+    /// non-zeroizing `String` inside `Value`.
+    ///
+    /// The structurally fixed shape is `{"aux":…?,"peers":{…},"targets":{…}}`
+    /// (keys sorted lexicographically per JCS). The optional `aux` field
+    /// goes through [`crate::canonical::canonicalize`] which still uses
+    /// `serde_json::Value`; deployments that put sensitive data in `aux`
+    /// trade some zeroize guarantees and should encrypt-before-stuffing.
+    pub fn to_canonical(&self) -> Result<Zeroizing<Vec<u8>>> {
+        let mut out = Zeroizing::new(Vec::with_capacity(256));
+        out.push(b'{');
+        let mut wrote_field = false;
+
+        // "aux" — sorted first lexicographically (a < p < t).
+        if !self.aux.is_null() {
+            write_field_key(&mut out, "aux", &mut wrote_field);
+            // best-effort: aux still routes through serde_json::Value. Caller
+            // should treat aux as non-secret per the to_canonical doc.
+            let aux_bytes = crate::canonical::canonicalize_strict(&self.aux)?;
+            out.extend_from_slice(&aux_bytes);
+        }
+
+        // "peers": {cid → base64(W_c)}
+        write_field_key(&mut out, "peers", &mut wrote_field);
+        out.push(b'{');
+        for (i, (cid_b64, w)) in self.peers.iter().enumerate() {
+            if i > 0 {
+                out.push(b',');
+            }
+            write_json_string(&mut out, cid_b64);
+            out.push(b':');
+            write_base64_string(&mut out, w.as_bytes());
+        }
+        out.push(b'}');
+
+        // "targets": {path → base64(s_o)}
+        write_field_key(&mut out, "targets", &mut wrote_field);
+        out.push(b'{');
+        for (i, (path, val)) in self.targets.iter().enumerate() {
+            if i > 0 {
+                out.push(b',');
+            }
+            write_json_string(&mut out, path);
+            out.push(b':');
+            write_base64_string(&mut out, val.as_bytes());
+        }
+        out.push(b'}');
+
+        out.push(b'}');
+        Ok(out)
     }
 
     /// Parse from canonical bytes (after Phase III.0 decryption of `C`).
+    ///
+    /// Goes directly from bytes to `ProtectedState` via the serde visitor
+    /// pattern (no intermediate `serde_json::Value`). Target plaintexts and
+    /// wrapping keys land in [`TargetValue`] / [`WrappingKey`] which both
+    /// `Zeroize` on drop, so the deserialize path is already leak-free.
     pub fn from_canonical(bytes: &[u8]) -> Result<Self> {
         serde_json::from_slice(bytes)
             .map_err(|_| crate::Error::Encoding("ProtectedState canonical parse"))
     }
+}
+
+// ── canonical-encoding helpers (private) ────────────────────────────────
+
+fn write_field_key(out: &mut Vec<u8>, key: &str, wrote_field: &mut bool) {
+    if *wrote_field {
+        out.push(b',');
+    }
+    *wrote_field = true;
+    write_json_string(out, key);
+    out.push(b':');
+}
+
+/// JSON-encode `s` as a quoted string, written directly to `out` with
+/// minimal allocation. Standard JSON escaping for `\`, `"`, and control
+/// chars; non-ASCII passes through (UTF-8).
+fn write_json_string(out: &mut Vec<u8>, s: &str) {
+    out.push(b'"');
+    for byte in s.bytes() {
+        match byte {
+            b'"' => out.extend_from_slice(b"\\\""),
+            b'\\' => out.extend_from_slice(b"\\\\"),
+            0x08 => out.extend_from_slice(b"\\b"),
+            0x0c => out.extend_from_slice(b"\\f"),
+            b'\n' => out.extend_from_slice(b"\\n"),
+            b'\r' => out.extend_from_slice(b"\\r"),
+            b'\t' => out.extend_from_slice(b"\\t"),
+            c if c < 0x20 => {
+                let s = format!("\\u{:04x}", c);
+                out.extend_from_slice(s.as_bytes());
+            }
+            c => out.push(c),
+        }
+    }
+    out.push(b'"');
+}
+
+/// base64-encode `bytes` into a quoted JSON string, with the intermediate
+/// base64 buffer held in `Zeroizing<String>` so it's wiped on scope exit.
+fn write_base64_string(out: &mut Vec<u8>, bytes: &[u8]) {
+    let b64 = Zeroizing::new(base64::engine::general_purpose::STANDARD.encode(bytes));
+    out.push(b'"');
+    out.extend_from_slice(b64.as_bytes());
+    out.push(b'"');
 }

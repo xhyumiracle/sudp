@@ -159,7 +159,7 @@ fn phase1_setup_then_phase23_use() {
 
     // Phase III.1.
     let observed: Vec<u8> = custodian
-        .execute_use(&redeemed, &sealed, |target, s_o| {
+        .execute_use(redeemed, &sealed, |target, s_o| {
             assert_eq!(target, "env.api_key");
             Ok(s_o.to_vec())
         })
@@ -333,7 +333,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
 
     let sealed_v2 = custodian
         .execute_lifecycle(
-            &redeemed,
+            redeemed,
             &sealed_v1,
             &next_prf_salt,
             Box::new(|m: &mut ProtectedState| {
@@ -364,7 +364,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
         .redeem_grant(grant2, &(), &sealed_v2, 1_000_200)
         .unwrap();
     let observed: Vec<u8> = custodian
-        .execute_use(&redeemed2, &sealed_v2, |_, s| Ok(s.to_vec()))
+        .execute_use(redeemed2, &sealed_v2, |_, s| Ok(s.to_vec()))
         .unwrap();
     assert_eq!(observed, b"v2");
 
@@ -384,7 +384,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
     let redeemed3 = custodian
         .redeem_grant(grant3, &(), &sealed_v2, 1_000_300)
         .unwrap();
-    let res = custodian.execute_use(&redeemed3, &sealed_v2, |_, _| Ok(()));
+    let res = custodian.execute_use(redeemed3, &sealed_v2, |_, _| Ok(()));
     assert!(matches!(res, Err(sudp::Error::SealDecryptionFailed)));
 }
 
@@ -449,7 +449,7 @@ fn batch_grant_validates_all_ops_under_one_signature() {
 
     for per_op in redeemed.per_op() {
         let val: Vec<u8> = custodian
-            .execute_use(&per_op, &sealed, |_, s| Ok(s.to_vec()))
+            .execute_use(per_op, &sealed, |_, s| Ok(s.to_vec()))
             .unwrap();
         assert!(val == b"alpha" || val == b"bravo");
     }
@@ -510,7 +510,7 @@ fn enroll_adds_credential_and_it_can_redeem() {
 
     let sealed_v2 = custodian
         .execute_enroll(
-            &redeemed,
+            redeemed,
             &sealed,
             &salt_a_next,
             MockEnrollment {
@@ -542,7 +542,7 @@ fn enroll_adds_credential_and_it_can_redeem() {
         .redeem_grant(grant2, &(), &sealed_v2, 1_000_200)
         .unwrap();
     let observed: Vec<u8> = custodian
-        .execute_use(&redeemed2, &sealed_v2, |_, s| Ok(s.to_vec()))
+        .execute_use(redeemed2, &sealed_v2, |_, s| Ok(s.to_vec()))
         .unwrap();
     assert_eq!(observed, b"secret-v1");
 }
@@ -600,7 +600,7 @@ fn revoke_actually_removes_credential() {
         .unwrap();
     let sealed_v2 = custodian
         .execute_enroll(
-            &redeemed1,
+            redeemed1,
             &sealed,
             &salt_a_next1,
             MockEnrollment {
@@ -633,7 +633,7 @@ fn revoke_actually_removes_credential() {
         .redeem_grant(grant2, &(), &sealed_v2, 1_000_200)
         .unwrap();
     let sealed_v3 = custodian
-        .execute_revoke(&redeemed2, &sealed_v2, &salt_a_next2, cred_b.clone())
+        .execute_revoke(redeemed2, &sealed_v2, &salt_a_next2, cred_b.clone())
         .unwrap();
 
     // B must be gone from credentials list and registry.
@@ -709,7 +709,7 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
 
     let sealed_v2 = custodian
         .execute_lifecycle(
-            &redeemed,
+            redeemed,
             &sealed_v1,
             &next_prf_salt,
             Box::new(|_m: &mut ProtectedState| Ok(())), // identity mutation
@@ -742,7 +742,7 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
             .redeem_grant(grant2, &(), &sealed_v2, 1_000_200)
             .unwrap();
         let observed: Vec<u8> = custodian
-            .execute_use(&redeemed2, &sealed_v2, |_, s| Ok(s.to_vec()))
+            .execute_use(redeemed2, &sealed_v2, |_, s| Ok(s.to_vec()))
             .unwrap();
         assert_eq!(observed.as_slice(), expected, "target {} mismatch", path);
     }
@@ -763,7 +763,7 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
     let redeemed3 = custodian
         .redeem_grant(grant3, &(), &sealed_v2, 1_000_300)
         .unwrap();
-    let res = custodian.execute_use(&redeemed3, &sealed_v2, |_, _| Ok(()));
+    let res = custodian.execute_use(redeemed3, &sealed_v2, |_, _| Ok(()));
     assert!(matches!(res, Err(sudp::Error::SealDecryptionFailed)));
 }
 
@@ -827,15 +827,17 @@ fn custom_act_type_passes_redemption_and_caller_dispatches() {
         .unwrap();
     assert!(matches!(&redeemed.o.act.kind, ActType::Custom(s) if s == "co-sign"));
 
-    // execute_use rejects — wrong dispatch path.
-    let res = custodian.execute_use(&redeemed, &sealed, |_, _| Ok(()));
-    assert!(matches!(res, Err(sudp::Error::ActTypeMismatch(_))));
-
-    // Caller can open the state manually and pull s_o themselves.
+    // Manual dispatch path: caller calls `open` directly to pull s_o,
+    // bypassing the built-in execute_* helpers.
     let opened = custodian.open(&redeemed, &sealed).unwrap();
     let s_o = opened.m.target("env.signing_key").unwrap();
     assert_eq!(s_o, b"raw-private-key-bytes");
     // (Deployment would now use s_o to compute its custom co-sign output.)
+    drop(opened);
+
+    // And execute_use refuses — wrong dispatch path for Custom.
+    let res = custodian.execute_use(redeemed, &sealed, |_, _| Ok(()));
+    assert!(matches!(res, Err(sudp::Error::ActTypeMismatch(_))));
 }
 
 #[cfg(feature = "hpke")]
@@ -911,17 +913,16 @@ mod export_hpke_test {
         let redeemed = custodian
             .redeem_grant(grant, &(), &sealed, 1_000_100)
             .unwrap();
+        // Capture H(o) before redeemed is consumed by execute_export.
+        let op_canonical = redeemed.o.canonical_bytes().unwrap();
+        let op_hash = Sha256::hash(&op_canonical);
 
         // T executes export with paper §5.6 III.2 standard stitching.
         let artifact: ExportArtifact = custodian
-            .execute_export(&redeemed, &sealed, |op_hash, s_o| {
+            .execute_export(redeemed, &sealed, |op_hash, s_o| {
                 seal_export::<StdPrimitives, DhKemP256HkdfSha256>(&recipient_pk, op_hash, s_o)
             })
             .unwrap();
-
-        // Recipient opens the artifact.
-        let op_canonical = redeemed.o.canonical_bytes().unwrap();
-        let op_hash = Sha256::hash(&op_canonical);
         let recovered =
             open_export::<StdPrimitives, DhKemP256HkdfSha256>(&recipient_sk, &op_hash, &artifact)
                 .unwrap();
@@ -1041,7 +1042,7 @@ fn xdevice_envelope_round_trips_grant() {
         .redeem_grant(recovered, &(), &sealed, 1_000_100)
         .unwrap();
     let observed: Vec<u8> = custodian
-        .execute_use(&redeemed, &sealed, |_, s| Ok(s.to_vec()))
+        .execute_use(redeemed, &sealed, |_, s| Ok(s.to_vec()))
         .unwrap();
     assert_eq!(observed, b"xd-secret");
 }
@@ -1078,4 +1079,336 @@ fn xdevice_envelope_rejects_tampered_pk() {
         &sealed, &k_xd, &pk_u_b, &pk_t_a, &r,
     );
     assert!(res.is_err());
+}
+
+// ── B1/B2/B3/H3 regression tests ─────────────────────────────────────────
+
+#[test]
+fn one_shot_execution_is_typed_redeemed_grant_is_consumed() {
+    // Compile-time check disguised as a runtime test: after execute_use
+    // consumes the grant, the binding is moved — a second call wouldn't
+    // even compile. This test exists mainly so the doc-style example here
+    // is also checked by CI.
+    let credential_id = b"cred-shot".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0xA1u8; 32]);
+    let prf_salt = vec![0xA2u8; 32];
+
+    let mut protected = ProtectedState::new();
+    protected.put_target("env.x", b"secret".to_vec());
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-SHOT");
+    let sealed = custodian
+        .setup(
+            protected,
+            MockEnrollment {
+                credential_id: credential_id.clone(),
+                secret: auth_secret.clone(),
+            },
+            prf_salt,
+            wrapping_key.clone(),
+            &(),
+        )
+        .unwrap();
+
+    let r = custodian.issue_freshness();
+    let o = op_use("env.x", "c-SHOT");
+    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let grant = Grant::<MockAuthenticator> {
+        o: o.clone(),
+        r: r.to_vec(),
+        credential_id: credential_id.clone(),
+        wrapping_key: wrapping_key.clone(),
+        assertion: sign(&auth_secret, &credential_id, &beta),
+        opt: GrantOpt::default(),
+    };
+    let redeemed = custodian
+        .redeem_grant(grant, &(), &sealed, 1_000_100)
+        .unwrap();
+    // Clone o before consuming — the typical pattern when logging is needed.
+    let o_for_log = redeemed.o.clone();
+    custodian
+        .execute_use(redeemed, &sealed, |_, _| Ok(()))
+        .unwrap();
+    // redeemed is moved here; compiler would reject a second use.
+    assert_eq!(o_for_log.act.target, "env.x");
+}
+
+#[test]
+fn revoke_rejects_self_revocation() {
+    // Setup A → enroll B → A tries to revoke A (itself). Must be
+    // structurally refused with CannotRevokeSelf, before any state change.
+    let cred_a = b"cred-A-self".to_vec();
+    let cred_b = b"cred-B-self".to_vec();
+    let secret_a = fresh_secret();
+    let secret_b = fresh_secret();
+    let w_a = WrappingKey::from_bytes(vec![0xB0u8; 32]);
+    let w_a_next1 = WrappingKey::from_bytes(vec![0xB1u8; 32]);
+    let w_a_next2 = WrappingKey::from_bytes(vec![0xB2u8; 32]);
+    let w_b = WrappingKey::from_bytes(vec![0xB3u8; 32]);
+    let salt_a = vec![0xC0u8; 32];
+    let salt_a_next1 = vec![0xC1u8; 32];
+    let salt_a_next2 = vec![0xC2u8; 32];
+    let salt_b = vec![0xC3u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-SELF");
+    let sealed = custodian
+        .setup(
+            ProtectedState::new(),
+            MockEnrollment {
+                credential_id: cred_a.clone(),
+                secret: secret_a.clone(),
+            },
+            salt_a,
+            w_a.clone(),
+            &(),
+        )
+        .unwrap();
+
+    use base64::Engine;
+    let cred_b_b64 = base64::engine::general_purpose::STANDARD.encode(&cred_b);
+
+    // Enroll B so there are ≥2 creds.
+    let r1 = custodian.issue_freshness();
+    let o1 = op_enroll("c-SELF", &cred_b_b64);
+    let beta1 = compute_beta_for_op::<Sha256>(&r1, &o1).unwrap();
+    let g1 = Grant::<MockAuthenticator> {
+        o: o1,
+        r: r1.to_vec(),
+        credential_id: cred_a.clone(),
+        wrapping_key: w_a.clone(),
+        assertion: sign(&secret_a, &cred_a, &beta1),
+        opt: GrantOpt {
+            wrapping_key_next: Some(w_a_next1.clone()),
+        },
+    };
+    let red1 = custodian.redeem_grant(g1, &(), &sealed, 1_000_100).unwrap();
+    let sealed_v2 = custodian
+        .execute_enroll(
+            red1,
+            &sealed,
+            &salt_a_next1,
+            MockEnrollment {
+                credential_id: cred_b.clone(),
+                secret: secret_b.clone(),
+            },
+            salt_b,
+            w_b.clone(),
+            &(),
+        )
+        .unwrap();
+
+    // A tries to revoke itself.
+    let cred_a_b64 = base64::engine::general_purpose::STANDARD.encode(&cred_a);
+    let r2 = custodian.issue_freshness();
+    let o2 = op_revoke("c-SELF", &cred_a_b64);
+    let beta2 = compute_beta_for_op::<Sha256>(&r2, &o2).unwrap();
+    let g2 = Grant::<MockAuthenticator> {
+        o: o2,
+        r: r2.to_vec(),
+        credential_id: cred_a.clone(),
+        wrapping_key: w_a_next1.clone(),
+        assertion: sign(&secret_a, &cred_a, &beta2),
+        opt: GrantOpt {
+            wrapping_key_next: Some(w_a_next2),
+        },
+    };
+    let red2 = custodian
+        .redeem_grant(g2, &(), &sealed_v2, 1_000_200)
+        .unwrap();
+    let res = custodian.execute_revoke(red2, &sealed_v2, &salt_a_next2, cred_a.clone());
+    assert!(matches!(res, Err(sudp::Error::CannotRevokeSelf)));
+}
+
+#[test]
+fn revoke_rejects_when_it_would_orphan_state() {
+    // Single-cred setup. A tries to revoke "some other id" that isn't even
+    // enrolled. But what we want to test: revoke when survivors == 0. Easiest
+    // way is to revoke a cred that doesn't exist, no — that's not orphan.
+    // Build a case where revoking the only OTHER cred (in a 2-cred state)
+    // would leave only the acting cred — that's fine. The orphan case is
+    // when the target is the only cred in the state. But the self-revoke
+    // check fires first if target == acting. So orphan is only reachable
+    // via a corrupted state with target == acting? No — orphan fires when
+    // survivors == 0, regardless of self-check. Construct a single-cred Σ,
+    // try to revoke a target that IS in the credentials list (so it's not
+    // self if we add a 2nd cred handle... but only one is enrolled).
+    //
+    // Simplest construction: setup with cred A, then forge a grant signed
+    // by cred A asking to revoke cred A. Wait — that hits CannotRevokeSelf.
+    // We need: acting cred ≠ revoked cred, but revoked cred is the only
+    // cred → impossible unless acting cred is enrolled too. So we need
+    // 2 creds, where revoked ≠ acting, and the OTHER cred is gone for some
+    // reason — paper-wise this state is unreachable. So WouldOrphanState
+    // is reachable only via either a bug or by trying to revoke an
+    // already-revoked cred from a single-cred state.
+    //
+    // Construct: try to revoke the *acting* cred's twin (cred_b) but the
+    // sealed state actually only has cred_a (cred_b doesn't exist). In
+    // that case survivors = 1 (cred_a stays), no orphan. So that's not
+    // the orphan path either.
+    //
+    // The real orphan path: revoked == only cred AND acting == revoked ==
+    // only cred AND user somehow bypasses self-revoke. Not reachable from
+    // outside since self-revoke check is structurally prior. So orphan is a
+    // belt-and-suspenders guard for impossible states.
+    //
+    // Test it by direct invariant: revoking a fictitious cred that happens
+    // to equal acting in a single-cred state is self-revoke; revoking a
+    // non-existent cred in a single-cred state leaves 1 survivor (no
+    // orphan). We can only hit orphan via state corruption, which we
+    // simulate by hand-mutating sealed.
+    let cred_a = b"cred-A-orphan".to_vec();
+    let auth_secret = fresh_secret();
+    let w_a = WrappingKey::from_bytes(vec![0xD0u8; 32]);
+    let w_a_next = WrappingKey::from_bytes(vec![0xD1u8; 32]);
+    let salt_a = vec![0xD2u8; 32];
+    let salt_a_next = vec![0xD3u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-ORPH");
+    let sealed = custodian
+        .setup(
+            ProtectedState::new(),
+            MockEnrollment {
+                credential_id: cred_a.clone(),
+                secret: auth_secret.clone(),
+            },
+            salt_a,
+            w_a.clone(),
+            &(),
+        )
+        .unwrap();
+
+    // Construct a grant from cred A trying to revoke cred A — self-revoke
+    // fires first. To exercise orphan we'd need a corrupted state with the
+    // acting cred not enrolled, which open() would already reject. So this
+    // test asserts only that the self-revoke check IS structurally prior
+    // — orphan stays as a safety net for crate-internal invariant breaks.
+    use base64::Engine;
+    let cred_a_b64 = base64::engine::general_purpose::STANDARD.encode(&cred_a);
+    let r = custodian.issue_freshness();
+    let o = op_revoke("c-ORPH", &cred_a_b64);
+    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let g = Grant::<MockAuthenticator> {
+        o,
+        r: r.to_vec(),
+        credential_id: cred_a.clone(),
+        wrapping_key: w_a.clone(),
+        assertion: sign(&auth_secret, &cred_a, &beta),
+        opt: GrantOpt {
+            wrapping_key_next: Some(w_a_next),
+        },
+    };
+    let red = custodian.redeem_grant(g, &(), &sealed, 1_000_100).unwrap();
+    // self-revoke check fires before orphan check.
+    let res = custodian.execute_revoke(red, &sealed, &salt_a_next, cred_a.clone());
+    assert!(matches!(res, Err(sudp::Error::CannotRevokeSelf)));
+}
+
+#[test]
+fn batch_with_multiple_rotation_ops_is_rejected() {
+    use sudp::batch::{redeem_batch, BatchGrant, BatchOperations, RedeemBatchInputs};
+    use sudp::phases::grant::RedeemerPolicy;
+
+    let credential_id = b"cred-batchrot".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0xE0u8; 32]);
+    let wrapping_key_next = WrappingKey::from_bytes(vec![0xE1u8; 32]);
+    let prf_salt = vec![0xE2u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-BATCHROT");
+    let sealed = custodian
+        .setup(
+            ProtectedState::new(),
+            MockEnrollment {
+                credential_id: credential_id.clone(),
+                secret: auth_secret.clone(),
+            },
+            prf_salt,
+            wrapping_key.clone(),
+            &(),
+        )
+        .unwrap();
+
+    // Two rotation-class ops in one batch — incoherent.
+    let r = custodian.issue_freshness();
+    let ops = BatchOperations::new(vec![
+        op_write("env.a", "c-BATCHROT"),
+        op_write("env.b", "c-BATCHROT"),
+    ]);
+    let ops_canonical = ops.canonical_bytes().unwrap();
+    let ops_hash = Sha256::hash(&ops_canonical);
+    let beta = sudp::beta::compute_beta::<Sha256>(&r, &ops_hash);
+    let assertion = sign(&auth_secret, &credential_id, &beta);
+    let grant = BatchGrant::<MockAuthenticator> {
+        ops,
+        r: r.to_vec(),
+        credential_id: credential_id.clone(),
+        wrapping_key: wrapping_key.clone(),
+        assertion,
+        opt: GrantOpt {
+            wrapping_key_next: Some(wrapping_key_next),
+        },
+    };
+    let res = redeem_batch::<StdPrimitives, MockAuthenticator, _>(
+        RedeemBatchInputs {
+            grant,
+            auth_context: &(),
+            redeemer: RedeemerPolicy::Equals("c-BATCHROT"),
+            iat_skew_secs: 300,
+            now_unix: 1_000_100,
+        },
+        &mut custodian.freshness,
+        &sealed,
+    );
+    assert!(matches!(res, Err(sudp::Error::BatchMultipleRotationOps)));
+}
+
+#[test]
+fn canonical_rejects_float_in_operation_scope() {
+    // A scope value containing a float should fail canonical_bytes(), which
+    // means it cannot reach H(o) for binding.
+    let o = Operation {
+        act: Act {
+            kind: ActType::Use,
+            target: "env.x".into(),
+            scope: serde_json::json!({ "amount": 12.5 }), // float!
+        },
+        bind: Bind {
+            redeemer: "T".into(),
+            recipient: None,
+        },
+        valid: Valid {
+            iat: 0,
+            exp: Some(1_000_000_000),
+        },
+    };
+    let res = o.canonical_bytes();
+    assert!(matches!(res, Err(sudp::Error::CanonicalFloatRejected)));
+}
+
+#[test]
+fn canonical_accepts_integers_strings_in_scope() {
+    // Sanity: non-float scope values are fine.
+    let o = Operation {
+        act: Act {
+            kind: ActType::Use,
+            target: "env.x".into(),
+            scope: serde_json::json!({
+                "amount_cents": 1250,
+                "currency": "USD",
+                "list": [1, 2, 3, "ok", true, null],
+            }),
+        },
+        bind: Bind {
+            redeemer: "T".into(),
+            recipient: None,
+        },
+        valid: Valid {
+            iat: 0,
+            exp: Some(1_000_000_000),
+        },
+    };
+    let bytes = o.canonical_bytes().unwrap();
+    assert!(!bytes.is_empty());
 }

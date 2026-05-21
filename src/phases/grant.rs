@@ -8,7 +8,7 @@
 use crate::beta::{compute_beta_for_op, constant_time_eq};
 use crate::freshness::FreshnessStore;
 use crate::grant::{Grant, RedeemedGrant};
-use crate::operation::ActType;
+use crate::operation::{ActType, Operation};
 use crate::primitives::{Authenticator, Hash, PrimitiveSuite};
 use crate::state::SealedState;
 use crate::Result;
@@ -19,6 +19,68 @@ pub enum RedeemerPolicy<'a> {
     Equals(&'a str),
     /// Skip the check (single-tenant deployment, or check deferred).
     AnyAccepted,
+}
+
+/// Shared context for operation-level public-field validation
+/// ([`validate_op_against`] / [`validate_batch_ops`]).
+///
+/// Centralises the pre-flight rules that both single-op redemption and batch
+/// redemption need to enforce. New invariants should land in
+/// [`validate_op_against`] so single + batch paths stay in lock-step.
+pub struct OpValidationCtx<'a> {
+    /// Custodian identity check policy.
+    pub redeemer: &'a RedeemerPolicy<'a>,
+    /// Maximum allowed `iat` skew, in seconds.
+    pub iat_skew_secs: u64,
+    /// Current unix time, in seconds. Inject at the call site for deterministic tests.
+    pub now_unix: u64,
+}
+
+/// Validate `o` against the public-field rules. Pure / no crypto.
+///
+/// Rules enforced (in order):
+/// 1. `o.valid` time window (expiry + `iat` skew).
+/// 2. `o.bind.redeemer` matches the custodian's identity (or skipped).
+/// 3. `o.act.kind == Export` requires `o.bind.recipient`.
+///
+/// Note: the rotation-class `W*_next` presence check is **not** here because
+/// it depends on grant-level `opt`, which isn't part of `o`. That check
+/// stays in the per-grant pipeline.
+pub fn validate_op_against(o: &Operation, ctx: &OpValidationCtx<'_>) -> Result<()> {
+    o.check_validity(ctx.now_unix, ctx.iat_skew_secs)?;
+    if let RedeemerPolicy::Equals(expected) = ctx.redeemer {
+        if !constant_time_eq(o.bind.redeemer.as_bytes(), expected.as_bytes()) {
+            return Err(crate::Error::RedeemerMismatch);
+        }
+    }
+    if o.act.kind == ActType::Export && o.bind.recipient.is_none() {
+        return Err(crate::Error::MissingRecipient);
+    }
+    Ok(())
+}
+
+/// Validate a batch of operations.
+///
+/// In addition to per-op validation, enforces:
+/// - non-empty;
+/// - at most one rotation-class operation (a single authenticator invocation
+///   produces a single `W*_next` / single `K'`; multiple rotation-class ops
+///   in one batch are semantically incoherent).
+pub fn validate_batch_ops(ops: &[Operation], ctx: &OpValidationCtx<'_>) -> Result<()> {
+    if ops.is_empty() {
+        return Err(crate::Error::Malformed("batch: empty ops"));
+    }
+    let rotation_count = ops
+        .iter()
+        .filter(|o| o.act.kind.is_rotation_class())
+        .count();
+    if rotation_count > 1 {
+        return Err(crate::Error::BatchMultipleRotationOps);
+    }
+    for o in ops {
+        validate_op_against(o, ctx)?;
+    }
+    Ok(())
 }
 
 /// Inputs to Phase II.3.
@@ -76,17 +138,14 @@ where
 
     // 2. Public-field pre-flight against o. Cheap, no crypto; grouped here
     //    so a malformed grant is rejected before signature verification work.
-    grant.o.check_validity(now_unix, iat_skew_secs)?;
-    if let RedeemerPolicy::Equals(expected) = redeemer {
-        if !constant_time_eq(grant.o.bind.redeemer.as_bytes(), expected.as_bytes()) {
-            return Err(crate::Error::RedeemerMismatch);
-        }
-    }
+    let val_ctx = OpValidationCtx {
+        redeemer: &redeemer,
+        iat_skew_secs,
+        now_unix,
+    };
+    validate_op_against(&grant.o, &val_ctx)?;
     if grant.o.act.kind.is_rotation_class() && grant.opt.wrapping_key_next.is_none() {
         return Err(crate::Error::MissingRotationKey);
-    }
-    if grant.o.act.kind == ActType::Export && grant.o.bind.recipient.is_none() {
-        return Err(crate::Error::MissingRecipient);
     }
 
     // 3. Look up pk_{cid_{c*}}.

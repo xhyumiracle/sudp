@@ -18,22 +18,49 @@
 
 use serde_json::Value;
 
+use crate::Result;
+
 /// Produce a canonical byte representation of a JSON value.
 ///
 /// This is the function whose output is fed to [`Hash::hash`](crate::primitives::Hash)
 /// to obtain `H(o)` for binding.
+///
+/// **Float behaviour**: this function silently round-trips floats through
+/// `serde_json::Number::to_string()`. Floating-point representations are not
+/// byte-reproducible across endpoints (NaN bit patterns, ±0, IEEE 754
+/// rounding) — if the value reaches an operation hash, that's a substitution
+/// vector. Use [`canonicalize_strict`] for any value that's about to enter
+/// `H(o)` / `H(ops)` to fail loudly on floats instead.
 pub fn canonicalize(value: &Value) -> Vec<u8> {
     let mut buf = Vec::with_capacity(64);
-    encode_into(value, &mut buf);
+    encode_into(value, &mut buf, /*strict=*/ false).unwrap_or_else(|_| unreachable!());
     buf
 }
 
-fn encode_into(value: &Value, out: &mut Vec<u8>) {
+/// Like [`canonicalize`] but **rejects float values** with
+/// [`Error::CanonicalFloatRejected`](crate::Error::CanonicalFloatRejected).
+///
+/// All canonical paths that produce input for `H(o)` or `H(ops)` go through
+/// this variant — see `Operation::canonical_bytes` and
+/// `BatchOperations::canonical_bytes`. Use [`canonicalize`] only for
+/// deployment-internal values where float-determinism doesn't matter.
+pub fn canonicalize_strict(value: &Value) -> Result<Vec<u8>> {
+    let mut buf = Vec::with_capacity(64);
+    encode_into(value, &mut buf, /*strict=*/ true)?;
+    Ok(buf)
+}
+
+fn encode_into(value: &Value, out: &mut Vec<u8>, strict: bool) -> Result<()> {
     match value {
         Value::Null => out.extend_from_slice(b"null"),
         Value::Bool(true) => out.extend_from_slice(b"true"),
         Value::Bool(false) => out.extend_from_slice(b"false"),
-        Value::Number(n) => out.extend_from_slice(n.to_string().as_bytes()),
+        Value::Number(n) => {
+            if strict && n.is_f64() {
+                return Err(crate::Error::CanonicalFloatRejected);
+            }
+            out.extend_from_slice(n.to_string().as_bytes());
+        }
         Value::String(s) => {
             let encoded = serde_json::to_string(s).unwrap_or_default();
             out.extend_from_slice(encoded.as_bytes());
@@ -44,7 +71,7 @@ fn encode_into(value: &Value, out: &mut Vec<u8>) {
                 if i > 0 {
                     out.push(b',');
                 }
-                encode_into(item, out);
+                encode_into(item, out, strict)?;
             }
             out.push(b']');
         }
@@ -63,11 +90,12 @@ fn encode_into(value: &Value, out: &mut Vec<u8>) {
                 let key = serde_json::to_string(k).unwrap_or_default();
                 out.extend_from_slice(key.as_bytes());
                 out.push(b':');
-                encode_into(&obj[*k], out);
+                encode_into(&obj[*k], out, strict)?;
             }
             out.push(b'}');
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
