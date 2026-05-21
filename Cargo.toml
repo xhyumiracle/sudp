@@ -2,7 +2,7 @@
 name = "sudp"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.85"
 description = "Secret-Use Delegation Protocol — protocol-level secret use for agentic systems"
 license = "Apache-2.0"
 repository = "https://github.com/xhyumiracle/sudp"

@@ -27,7 +27,7 @@ operations `U` has authorized. Reusable authority does not cross `R`'s boundary.
 
 ## Status
 
-Pre-1.0. MSRV 1.74. Wire format and trait shapes may move before the 1.0 cut.
+Pre-1.0. MSRV 1.85 (driven by transitive `base64ct` 1.8+ which requires edition 2024). Wire format and trait shapes may move before the 1.0 cut.
 
 - 17 unit + 13 end-to-end tests pass (incl. HPKE export, cross-device envelope, custom act-type extension, lifecycle rotate/enroll/revoke).
 - `cargo clippy --all-targets` is clean.
