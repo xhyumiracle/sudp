@@ -1,70 +1,220 @@
 # sudp
 
-The **Secret-Use Delegation Protocol** — a protocol-level answer to capability-constrained
-secret use for agentic systems.
+> **Secret-Use Delegation Protocol** — protocol-level secret use for agentic systems, in Rust.
 
-`sudp` is a Rust implementation of the SUDP abstract protocol: the unit of delegation is the
-*use* of a secret for one specific authorized operation `o`, not the secret itself. The
-requester is delegated the right to **cause** an authorized use; the custodian is delegated
-the right to **perform** that single use; reusable authority never crosses the requester
-boundary.
+`sudp` lets an autonomous requester *propose* a secret-backed operation, a user *authorize*
+exactly that operation, and a custodian *perform* it — without the requester ever seeing
+reusable authority over the secret. The unit of delegation is one **use**, not the secret.
 
-This crate provides the protocol-native interface — operations, grants, the three protocol
-phases, batch approval, and lifecycle (rotate/enroll/revoke/write) — over abstract
-cryptographic traits and a standards-based default profile (HKDF-SHA-256 / XChaCha20-Poly1305 /
-AEAD-as-wrap / WebAuthn with PRF extension).
-
-## What's in scope
-
-- Abstract primitive traits: `Hash`, `Kdf`, `Aead`, `KeyWrap`, `Kem`, `Csprng`, `Authenticator`.
-- Standard primitive realisations behind `default-features`.
-- Protocol types: `Operation`, `Grant`, `RedeemedGrant`, `SealedState`, `ProtectedState`,
-  `BatchOperations`.
-- Three phases as a `Custodian` façade: setup → grant validation → consumption dispatch.
-- Lifecycle operations with per-write rotation discipline (§5.7).
-- WebAuthn implementation of `Authenticator` (feature `webauthn`, on by default).
-
-## What's out of scope (caller's responsibility)
-
-- HTTP / transport (TLS 1.3, cross-device handshake).
-- Tool-call → `Operation` compilation (adapter step, §6.3).
-- Trusted rendering at `U` (the crate emits canonical bytes; UI rendering is the deployment's
-  job).
-- Persistence of `SealedState` (atomic write semantics required by §5.6 III.3).
-- Authority-bearing secret rotation at `E` (deployment policy parameter).
-
-## Quick taste
-
-```rust,no_run
-use sudp::prelude::*;
-
-let mut custodian = Custodian::<WebAuthn, StdPrimitives>::new();
-
-// Phase I: build initial sealed state with one enrolled passkey.
-let sealed = custodian.setup(/* initial M */, /* first credential */)?;
-
-// Phase II.1: agent requests authorization for operation o.
-let r = custodian.issue_freshness();
-let beta = compute_binding(DomainSeparator::Bind, &r, &operation);
-
-// ... client computes σ = Sig_sk(β), derives W*, posts Grant ...
-
-// Phase II.3: redeem.
-let redeemed = custodian.redeem_grant(&grant, &webauthn_ctx)?;
-
-// Phase III: dispatch by act type.
-let response = custodian.execute_use(&redeemed, &sealed, |target, s_o| {
-    /* call the environment with s_o */
-    Ok(())
-})?;
+```text
+                  ┌─────────────────────────┐
+                  │   Authorizer  U         │
+                  │   (passkey on a device) │
+                  └────────────┬────────────┘
+                               │  signs β over (DS ‖ r ‖ H(o))
+                               ▼
+   ┌──────────────┐      ┌───────────────┐       ┌──────────────┐
+   │ Requester R  │ ─o─▶ │  Custodian T  │ ─s─▶  │ Environment  │
+   │   (agent)    │      │  (this crate) │       │      E       │
+   │              │◀ρ────│ holds sealed Σ│       │              │
+   └──────────────┘      └───────────────┘       └──────────────┘
 ```
 
-See `tests/` and `examples/` for end-to-end flows.
+`R` (the agent / LLM tool runtime) never receives the secret `s`. `T` only spends `s` on
+operations `U` has authorized. Reusable authority does not cross `R`'s boundary.
+
+---
 
 ## Status
 
-Pre-1.0. Wire format and trait shapes may move before the 1.0 cut.
+Pre-1.0. MSRV 1.74. Wire format and trait shapes may move before the 1.0 cut.
+
+- 17 unit + 8 end-to-end tests pass on the default profile.
+- `cargo clippy --all-targets` is clean.
+- `cargo check --no-default-features` builds.
+
+## Try it
+
+```bash
+cargo run --example end_to_end
+```
+
+Walks through Phase I (setup) → Phase II (issue freshness `r`, sign β at `U`, redeem at
+`T`) → Phase III (`use` inside `T`'s boundary), with a mock authenticator so you don't
+need a real passkey to see the shape.
+
+## Minimal usage
+
+```rust
+use sudp::prelude::*;
+
+// Pick the standard primitive profile + WebAuthn as the authenticator.
+let mut custodian: Custodian<StdPrimitives, WebAuthn> = Custodian::new("custodian-id");
+
+// Phase I — build Σ₀ from an initial M and one enrolled passkey.
+let sealed = custodian.setup(
+    protected_state,           // ProtectedState (M₀)
+    enrollment,                // WebAuthnEnrollment
+    prf_salt,                  // η_c, 32 bytes
+    wrapping_key,              // W_c, derived at U from the PRF extension
+    &auth_context,             // AuthenticatorContext { rp_id, origin, require_uv }
+)?;
+
+// Phase II.1 — issue a fresh r token. U signs β = H(DS_bind ‖ r ‖ H(o)).
+let r = custodian.issue_freshness();
+// ... client computes β, gets σ from the authenticator, sends Grant ...
+
+// Phase II.3 — redeem the grant.
+let redeemed = custodian.redeem_grant(grant, &auth_context, &sealed, now_unix)?;
+
+// Phase III.1 — use the secret inside T's boundary; R never sees it.
+let response = custodian.execute_use(&redeemed, &sealed, |target, s_o| {
+    /* call the environment with s_o; return only what o authorizes */
+    Ok(call_external(target, s_o))
+})?;
+```
+
+See [`examples/end_to_end.rs`](examples/end_to_end.rs) for a runnable variant and
+[`tests/e2e.rs`](tests/e2e.rs) for adversarial cases (tampering, replay, rotation
+lockout, revocation).
+
+---
+
+## Concepts
+
+- **Operation** `o = (act, bind, valid)` — the canonical U↔T contract. `act` carries the
+  semantic class (`use`, `export`, `write`, `rotate`, `enroll`, `revoke`), the `target`,
+  and adapter-canonicalized scope.
+- **Grant** `G = (o, r, cid, W*, σ*, opt)` — the one-shot authorization artifact. `σ*`
+  binds `β = H(DS_bind ‖ r ‖ H(o))`; `W*` arrives over the confidential `U → T` leg.
+- **Sealed state** `Σ = (C, {(cid, η, K̂)}, Reg, ver)` — what `T` persists. `Σ` alone is
+  insufficient to recover `M`; an authenticator invocation is required.
+- **Custodian** — façade over the three phases: `setup`, `issue_freshness`, `redeem_grant`,
+  `execute_use`, `execute_export`, `execute_lifecycle`, `execute_enroll`, `execute_revoke`.
+
+## Customizing primitives
+
+The crate exposes each cryptographic interface as a trait under
+[`sudp::primitives`](src/primitives/mod.rs). Concrete deployments pick the granularity that
+fits.
+
+### Granularity 1 — use the standard profile
+
+```rust
+let custodian: Custodian<StdPrimitives, WebAuthn> = Custodian::new("...");
+```
+
+`StdPrimitives` bundles:
+
+| Role     | Type                       | Backed by               |
+|----------|----------------------------|-------------------------|
+| `Hash`   | `Sha256`                   | `sha2`                  |
+| `Kdf`    | `HkdfSha256`               | `hkdf`                  |
+| `Aead`   | `ChaCha20Poly1305`         | `chacha20poly1305`      |
+| `Wrap`   | `AeadWrap<ChaCha20Poly1305>` | AEAD-as-wrap, AD = `DS_wrap ‖ cid ‖ ver` |
+| `Csprng` | `OsCsprng`                 | `rand::rngs::OsRng`     |
+
+### Granularity 2 — replace a single primitive
+
+Write your own type implementing one trait (e.g. an HSM-backed AEAD), then assemble a
+`PrimitiveSuite`:
+
+```rust
+struct HsmAead;
+impl Aead for HsmAead { /* delegate to your HSM */ }
+
+struct MySuite;
+impl PrimitiveSuite for MySuite {
+    type Hash   = Sha256;                  // standard
+    type Kdf    = HkdfSha256;              // standard
+    type Aead   = HsmAead;                 // custom
+    type Wrap   = AeadWrap<HsmAead>;       // reuse the wrap shape
+    type Csprng = OsCsprng;                // standard
+}
+
+let custodian: Custodian<MySuite, WebAuthn> = Custodian::new("...");
+```
+
+### Granularity 3 — bring your own everything
+
+Implement every trait (e.g. for a FIPS-validated stack, post-quantum experiment, or pure
+AES-KW key wrap without AEAD), and you control the entire crypto surface. The protocol
+logic in `phases/` only sees `S::Hash`, `S::Aead`, etc. — no built-in primitive is
+hardcoded.
+
+### Authenticator is a separate axis
+
+[`Authenticator`](src/primitives/auth.rs) is the *user-side tamper-resistant module* and
+its verifier. It is **not** inside `PrimitiveSuite` because it carries four associated
+types (`Enrollment`, `Assertion`, `PublicKey`, `Context`) and is swapped much more often
+than crypto primitives — for tests, for HSMs that aren't WebAuthn, for OS-credential
+mediators.
+
+```rust
+//                   ▼ crypto bundle    ▼ user-side authenticator
+let custodian: Custodian<StdPrimitives, WebAuthn>     = Custodian::new("...");
+let custodian: Custodian<StdPrimitives, MockForTests> = Custodian::new("...");
+let custodian: Custodian<StdPrimitives, HsmBackend>   = Custodian::new("...");
+```
+
+WebAuthn (ES256 / P-256 with the PRF extension) is shipped as the default backend;
+write your own by implementing `verify_enrollment` and `verify_assertion`.
+
+### Freshness store is the third axis
+
+`Custodian<S, A, F>`'s third parameter is the `r`-token store. The default is an
+in-memory single-process pool; swap in a Redis-backed store, a database, or anything else
+that implements [`FreshnessStore`](src/freshness.rs).
+
+---
+
+## Feature flags
+
+| Feature           | Default | Pulls in                                     |
+|-------------------|---------|----------------------------------------------|
+| `std-primitives`  | ✓       | `sha2`, `hkdf`, `chacha20poly1305`, `rand`   |
+| `webauthn`        | ✓       | `p256`, ES256/P-256 assertion verifier       |
+| `json-canonical`  | ✓       | reserved; JCS canonical encoder is always on |
+
+Disable both default features and bring your own primitives:
+
+```toml
+sudp = { version = "0.1", default-features = false }
+```
+
+---
+
+## What's in scope
+
+- Abstract primitive traits and a standards-based default profile.
+- `Operation`, `Grant`, `RedeemedGrant`, `SealedState`, `ProtectedState`, `BatchOperations`.
+- Custodian façade for Phases I / II / III, batch grants, and lifecycle ops with per-write
+  rotation (peer-map recoverability).
+- WebAuthn assertion / enrollment verification.
+
+## What's out of scope
+
+- HTTP / transport (TLS 1.3, cross-device handshake — these belong in the deployment).
+- Tool-call → `Operation` compilation (the adapter step is per-tool and lives outside the
+  protocol core).
+- Trusted rendering at `U` (the crate emits canonical bytes; UI rendering is the
+  deployment's job).
+- Persistence of `SealedState` (atomicity is a deployment invariant).
+- Rotation of the authority-bearing secret at `E` (deployment policy parameter).
+
+## Threat model in one paragraph
+
+If the requester `R` is fully compromised (prompt injection, tool-side content, scratchpad
+rewriting, runtime shim), it cannot read the secret `s`, cannot derive any reusable
+artifact from `s`, cannot replay an old grant (single-use `r` consumed at redemption),
+and cannot substitute an operation past authorization (any tampering with `o` changes `β`
+and fails signature verification). It can at most propose adversarial operations to `T`
+and ask `U` to approve them. `sudp` does *not* protect against `U` approving a
+dangerous-but-correctly-rendered operation, trusted-rendering failures inside `U`'s
+client, or runtime compromise of `T` itself.
+
+---
 
 ## License
 
-Apache-2.0.
+Apache-2.0. See [LICENSE](LICENSE).
