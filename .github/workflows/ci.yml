@@ -10,6 +10,10 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
 
+defaults:
+  run:
+    working-directory: custodian/rust
+
 jobs:
   test:
     name: test / ${{ matrix.toolchain }}
@@ -27,6 +31,8 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: custodian/rust
       - name: Test (default features)
         run: cargo test --locked
       - name: Test (all features)
@@ -39,6 +45,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: custodian/rust
       - run: cargo check --no-default-features
 
   clippy:
@@ -50,6 +58,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: custodian/rust
       - run: cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
@@ -69,6 +79,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: custodian/rust
       - name: Build docs
         env:
           RUSTDOCFLAGS: -D warnings

@@ -1,5 +1,12 @@
-/target
+target/
 Cargo.lock
 *.swp
 *.swo
 .DS_Store
+
+# Node / TS (for authorizer/ts/ when it lands)
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.pnpm-store/
