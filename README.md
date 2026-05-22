@@ -1,6 +1,6 @@
-# sudp
+# SUDP — Secret-Use Delegation Protocol
 
-> **Secret-Use Delegation Protocol** — protocol-level secret use for agentic systems.
+> Protocol-level secret use for agentic systems.
 
 [![crates.io](https://img.shields.io/crates/v/sudp.svg?label=sudp%20%28crates.io%29)](https://crates.io/crates/sudp)
 [![npm @sudp-protocol/authorizer](https://img.shields.io/npm/v/%40sudp-protocol%2Fauthorizer.svg?label=%40sudp-protocol%2Fauthorizer)](https://www.npmjs.com/package/@sudp-protocol/authorizer)
