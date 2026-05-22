@@ -54,7 +54,7 @@ impl WrappingKey {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GrantOpt {
     /// `W*_next` derived in the same authenticator invocation from
-    /// `η^next_{c*}` (, last paragraph).
+    /// `η^next_{c*}` .
     ///
     /// Required for any [`crate::ActType::is_rotation_class`] operation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,7 +82,7 @@ pub struct Grant<A: Authenticator> {
     pub opt: GrantOpt,
 }
 
-/// Phase II.3 output (custodian-internal, ).
+/// Phase II.3 output (custodian-internal).
 ///
 /// `r` and `σ*` have been consumed. The redeemed grant is what Phase III
 /// inputs.

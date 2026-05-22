@@ -38,7 +38,7 @@ pub trait Hash {
     fn hash_into(data: &[u8], out: &mut [u8]) -> Result<()>;
 }
 
-/// SHA-256 implementation of [`Hash`] ( Table 1).
+/// SHA-256 implementation of [`Hash`] (standard profile, Table 1).
 #[cfg(feature = "std-primitives")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std-primitives")))]
 pub struct Sha256;

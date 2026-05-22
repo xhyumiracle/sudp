@@ -65,7 +65,7 @@ pub fn run<S: PrimitiveSuite, A: Authenticator>(
 
     // 3. Seal M.
     // Inject the first peer entry so subsequent rotations can rewrap K under
-    // a known W_c ( default policy).
+    // a known W_c (default peer-map recoverability policy).
     let cid_b64 = base64::engine::general_purpose::STANDARD.encode(&credential.credential_id);
     protected.peers.insert(cid_b64, wrapping_key.clone());
     let m_bytes = protected.to_canonical()?;

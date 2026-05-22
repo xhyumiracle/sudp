@@ -4,7 +4,7 @@
 //!
 //! - `act = (type, target, scope)` — what is approved.
 //! - `bind = (redeemer, recipient)` — who may redeem and who receives.
-//! - `valid = (expiry)` — validity window.
+//! - `valid = (expiry, multiplicity)` — validity window and multiplicity bound.
 //!
 //! Freshness is **not** in `o`; it is supplied by the single-use `r` token at
 //! Phase II.1 and commits to `o` implicitly through `β = H(DS_bind ‖ r ‖ H(o))`.
@@ -18,7 +18,7 @@ use crate::Result;
 /// Marked `#[non_exhaustive]` so future canonical variants can be added
 /// without a breaking change, and so external profiles can use the
 /// [`Custom`](ActType::Custom) variant to extend the dispatch vocabulary
-/// per  ("Extensibility of the dispatch vocabulary").
+/// per the "Extensibility of the dispatch vocabulary" clause.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
@@ -35,7 +35,7 @@ pub enum ActType {
     Enroll,
     /// Remove a credential. Phase III.3.
     Revoke,
-    /// Profile-defined dispatch type ( last paragraph).
+    /// Profile-defined dispatch type.
     ///
     /// The string is the profile-specific type name (e.g. `"co-sign"`,
     /// `"stream-decrypt"`). Custom types preserve β/σ verification at
@@ -52,7 +52,7 @@ pub enum ActType {
 
 impl ActType {
     /// True iff this act class mutates sealed state and therefore requires
-    /// `W*_next` in [`crate::GrantOpt`] (, ).
+    /// `W*_next` in [`crate::GrantOpt`].
     ///
     /// Returns `false` for [`Self::Custom`]; see the variant docs.
     pub fn is_rotation_class(&self) -> bool {
@@ -153,15 +153,15 @@ impl Valid {
             multiplicity: Multiplicity::One,
         }
     }
-}
 
-impl Valid {
     /// Time-window check. Rejects if `exp` is in the past or `iat` is more
     /// than `iat_skew_secs` in the future.
     ///
     /// Lives on `Valid` (rather than only on `Operation`) so deployments can
     /// validate pre-built `Valid` values (grant inspection, request
     /// pre-flight) without round-tripping through a complete `Operation`.
+    /// Does **not** inspect `multiplicity` — that bound is enforced at
+    /// redemption time by [`crate::phases::grant::validate_op_against`].
     pub fn check(&self, now_unix: u64, iat_skew_secs: u64) -> Result<()> {
         if self.iat > now_unix + iat_skew_secs {
             return Err(crate::Error::OperationIatSkew);
@@ -189,8 +189,7 @@ pub struct Operation {
 impl Operation {
     /// Time-window check; delegates to [`Valid::check`].
     pub fn check_validity(&self, now_unix: u64, iat_skew_secs: u64) -> Result<()> {
-        self.valid.check(now_unix, iat_skew_secs)?;
-        Ok(())
+        self.valid.check(now_unix, iat_skew_secs)
     }
 
     /// Convenience: render as canonical bytes.

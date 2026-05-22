@@ -1,5 +1,5 @@
 //! Key encapsulation mechanism for recipient-protected extraction
-//! (,  Table 1).
+//! (standard profile, Table 1).
 //!
 //! The standard profile is HPKE (DHKEM-P256 / HKDF-SHA-256 / AEAD). This crate
 //! exposes the trait so deployments needing export can plug HPKE in via the

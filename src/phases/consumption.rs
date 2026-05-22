@@ -220,7 +220,7 @@ pub struct LifecycleOutput {
     pub k_prime: Zeroizing<Vec<u8>>,
 }
 
-/// Phase III.3 — lifecycle / state-update (,  default
+/// Phase III.3 — lifecycle / state-update (default
 /// recoverability policy).
 ///
 /// Steps:

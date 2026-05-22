@@ -926,7 +926,7 @@ fn xdevice_envelope_round_trips_grant() {
     use rand::rngs::OsRng;
     use sudp::xdevice;
 
-    // Generate ephemeral key pairs for U and T ( assumes pk_T
+    // Generate ephemeral key pairs for U and T (assumes pk_T
     // arrives authenticated by some out-of-band channel — we skip that part
     // and just verify the envelope crypto).
     let sk_u = EphemeralSecret::random(&mut OsRng);

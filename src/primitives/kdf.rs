@@ -20,7 +20,7 @@ pub trait Kdf {
     }
 }
 
-/// HKDF-SHA-256 implementation of [`Kdf`] ( Table 1).
+/// HKDF-SHA-256 implementation of [`Kdf`] (standard profile, Table 1).
 #[cfg(feature = "std-primitives")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std-primitives")))]
 pub struct HkdfSha256;

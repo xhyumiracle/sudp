@@ -5,7 +5,7 @@
 //!
 //! - the authority-bearing service secrets `s_o := M[target]`,
 //! - the in-state peer map `Peer := {cid_c → W_c}` for multi-credential
-//!   recoverability ( default policy),
+//!   recoverability (default peer-map policy),
 //! - deployment-specific auxiliary data.
 
 use std::collections::BTreeMap;
@@ -17,7 +17,7 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::grant::WrappingKey;
 use crate::Result;
 
-/// Peer map: `{cid_c → W_c}` ( default recoverability policy).
+/// Peer map: `{cid_c → W_c}` (default recoverability policy).
 ///
 /// `BTreeMap` keys are base64 strings (deterministic ordering on the wire).
 /// The values are wrapping keys for credentials other than the acting one;

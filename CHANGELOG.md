@@ -63,12 +63,12 @@ Initial release.
   under the default `webauthn` feature.
 - HPKE-DHKEM realisation of `Kem` (`HpkeDhKem<K>` with
   `DhKemP256HkdfSha256` type alias) under the optional `hpke` feature.
-- `xdevice` module:  cross-device confidentiality envelope —
+- `xdevice` module: cross-device confidentiality envelope —
   `derive_session_key`, `seal_grant`, `open_grant`. Caller supplies the
   shared secret (ECDH / X25519 / HSM) and `pk_T` trust establishment.
 - `ActType::Custom(String)` plus `#[non_exhaustive]` for profile-defined
-  dispatch types per  ("Extensibility of the dispatch
-  vocabulary").
+  dispatch types per the "Extensibility of the dispatch vocabulary"
+  clause.
 - Phase III.2 standard composition helpers: `seal_export` / `open_export`
   implementing `(K_d, ct_d) ← Encap(pk); k_d ← KDF(K_d; ⊥, H(o));
   δ ← Enc_{k_d}(s_o; H(o))`.
@@ -77,7 +77,7 @@ Initial release.
 ### Security-relevant choices
 
 - `RedeemedGrant` is consumed by value across all `execute_*` paths,
-  enforcing  one-shot-execution at the type-system level.
+  enforcing one-shot-execution at the type-system level.
 - `execute_revoke` refuses self-revocation (`CannotRevokeSelf`) and any
   revoke that would leave `Σ` with zero credentials (`WouldOrphanState`).
 - `redeem_batch` rejects batches containing more than one rotation-class
@@ -96,8 +96,8 @@ Initial release.
   `K` and `K'` are held in `Zeroizing<Vec<u8>>` while in the custodian
   boundary.
 - AEAD-as-wrap binds `(credential_id, version)` as associated data via
-  `WrapBinding`, implementing the defense-in-depth recommendation of
-
+  `WrapBinding`, implementing the defense-in-depth recommendation for
+  AEAD-as-wrap profiles.
 - WebAuthn assertion verification uses constant-time comparison for
   `origin`, `challenge` (= β), and `rpIdHash`. ECDSA-P256 verify runs
   through the `p256` crate (constant-time).

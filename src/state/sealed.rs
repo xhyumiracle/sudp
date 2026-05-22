@@ -10,7 +10,7 @@ pub type Version = u16;
 /// Current wrapping epoch.
 pub const CURRENT_VERSION: Version = 1;
 
-/// Per-credential PRF salt `η_c` ( setup).
+/// Per-credential PRF salt `η_c` (setup).
 pub type PrfSalt = Vec<u8>;
 
 /// Wrapped state key `K̂_c = Wrap_{W_c}(K)`.
