@@ -2,10 +2,21 @@
 
 > **Secret-Use Delegation Protocol** — protocol-level secret use for agentic systems.
 
-`sudp` lets an autonomous **Requester** *propose* a secret-backed operation, an **Authorizer**
-*authorize* exactly that operation, and a **Custodian** *perform* it — without the
-Requester ever seeing reusable authority over the secret. The unit of delegation is one
-**use**, not the secret.
+[![crates.io](https://img.shields.io/crates/v/sudp.svg?label=sudp%20%28crates.io%29)](https://crates.io/crates/sudp)
+[![npm @sudp-protocol/authorizer](https://img.shields.io/npm/v/%40sudp-protocol%2Fauthorizer.svg?label=%40sudp-protocol%2Fauthorizer)](https://www.npmjs.com/package/@sudp-protocol/authorizer)
+[![npm @sudp-protocol/requester](https://img.shields.io/npm/v/%40sudp-protocol%2Frequester.svg?label=%40sudp-protocol%2Frequester)](https://www.npmjs.com/package/@sudp-protocol/requester)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+This repository is the **reference implementation** of the SUDP protocol
+defined in:
+
+> *Secret-Use Delegation Protocol for Agentic Systems.*
+> [`arXiv:2604.24920`](https://arxiv.org/abs/2604.24920).
+
+`sudp` lets an autonomous **Requester** *propose* a secret-backed operation,
+an **Authorizer** *authorize* exactly that operation, and a **Custodian**
+*perform* it — without the Requester ever seeing reusable authority over
+the secret. The unit of delegation is one **use**, not the secret.
 
 ```text
                   ┌─────────────────────────┐
@@ -21,50 +32,57 @@ Requester ever seeing reusable authority over the secret. The unit of delegation
    └──────────────┘      └───────────────┘       └──────────────┘
 ```
 
-`R` never receives the secret `s`. `T` only spends `s` on operations `A` has authorized.
-Reusable authority does not cross `R`'s boundary.
+`R` never receives the secret `s`. `T` only spends `s` on operations `A`
+has authorized. Reusable authority does not cross `R`'s boundary — even
+if `R` is fully compromised (prompt injection, runtime shim, etc.).
 
-## Layout
+## Packages
+
+| Package | Role | Registry | Status |
+|---------|------|----------|--------|
+| [`custodian/rust`](custodian/rust/) | **Custodian** Rust crate | `sudp` on [crates.io](https://crates.io/crates/sudp) | pre-1.0, working |
+| [`authorizer/ts`](authorizer/ts/) | **Authorizer** TS SDK | `@sudp-protocol/authorizer` on [npm](https://www.npmjs.com/package/@sudp-protocol/authorizer) | pre-1.0, cross-language β conformance locked |
+| [`requester/ts`](requester/ts/) | **Requester** TS types + op builders | `@sudp-protocol/requester` on [npm](https://www.npmjs.com/package/@sudp-protocol/requester) | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
 
 ```
 sudp/
-  custodian/
-    rust/        ← Rust implementation of the Custodian (T)
-  authorizer/
-    ts/          ← TypeScript SDK for the Authorizer (A) — browser/passkey/HSM
-  requester/
-    ts/          ← TypeScript types + op builders for the Requester (R) — agent-side
-  LICENSE
-  SECURITY.md
+  custodian/rust/      ← T  (Rust)
+  authorizer/ts/       ← A  (TypeScript, browser / passkey / HSM)
+  requester/ts/        ← R  (TypeScript, agent-side types + builders)
+  examples/            ← runnable cross-process demo
+  custodian/rust/CHANGELOG.md, authorizer/ts/, requester/ts/ CHANGELOGs
+  LICENSE, SECURITY.md
 ```
 
-| Package | Role | Status |
-|---------|------|--------|
-| [`custodian/rust`](custodian/rust/) | Custodian Rust crate (publishes as `sudp`) | pre-1.0, working |
-| [`authorizer/ts`](authorizer/ts/) | Authorizer TS SDK (publishes as `@sudp-protocol/authorizer`) | pre-1.0, cross-language β conformance locked |
-| [`requester/ts`](requester/ts/) | Requester TS types + builders (publishes as `@sudp-protocol/requester`) | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
+## Try it
 
-### Building an agent against SUDP
+A single command builds all three packages, spawns the Rust Custodian
+binary, and runs a Node script that plays the Requester and Authorizer
+roles. The output is colour-coded by role and prints every wire
+interaction. The demo finishes with an adversarial sanity check —
+the Requester tampers with the operation after the Authorizer signs,
+and the Custodian rejects with `AuthorizationInvalid`.
 
-Agent authors typically need only [`@sudp-protocol/requester`](requester/ts/):
-it gives you typed `Operation` builders (`useOp`, `exportOp`, etc.) and
-shape validators, but **no transport** — wire it up to whatever HTTP
-client your stack uses to reach the Custodian. SUDP intentionally does
-not ship framework adapters; the Requester is the most replaceable layer
-and every agent framework writes this glue its own way.
+```bash
+git clone https://github.com/xhyumiracle/sudp
+cd sudp/examples/protocol-demo
+./run.sh
+```
 
-## See it run
+For API-level usage, see the per-package READMEs:
+[`custodian/rust`](custodian/rust/) ·
+[`authorizer/ts`](authorizer/ts/) ·
+[`requester/ts`](requester/ts/).
 
-Two reading paths:
+## Building an agent against SUDP
 
-- **[`examples/protocol-demo/`](examples/protocol-demo/)** — `./run.sh`
-  builds the three packages, spawns the Rust Custodian, runs a Node
-  script that plays the Requester and Authorizer roles, prints
-  colour-coded annotated logs of every wire interaction, and finishes
-  with a tampered-grant rejection sanity check.
-- The per-package READMEs ([`custodian/rust`](custodian/rust/),
-  [`authorizer/ts`](authorizer/ts/), [`requester/ts`](requester/ts/))
-  for API-level usage.
+Agent authors typically need only
+[`@sudp-protocol/requester`](requester/ts/): typed `Operation` builders
+(`useOp`, `exportOp`, etc.) and shape validators, with **no transport**
+— wire it up to whatever HTTP client your stack uses to reach the
+Custodian. SUDP intentionally does not ship framework adapters; the
+Requester is the most replaceable layer and every agent framework writes
+this glue its own way.
 
 ## Cross-language alignment
 
@@ -83,7 +101,7 @@ composite shape stays aligned by construction.
 | `seal_ad` layout | `phases::setup::seal_ad` (setup tests) | `conformance.test.ts: seal_ad: DS_SEAL ‖ ver_be` |
 | `WRAP_VERSION` ↔ `CURRENT_VERSION` | `state::CURRENT_VERSION = 1` | `conformance.test.ts: WRAP_VERSION matches Rust...` |
 
-Run both halves; CI does the same on every push:
+Run both halves locally; CI does the same on every push:
 
 ```bash
 cd custodian/rust && cargo test
@@ -95,8 +113,34 @@ Either side failing means the cross-language protocol invariant broke.
 
 ## Pre-1.0
 
-Wire format and trait shapes may still move before the 1.0 cut. See each package's own
-CHANGELOG for details.
+Wire format and trait shapes may still move before the 1.0 cut. See each
+package's own CHANGELOG for details. Pin minor versions in production:
+
+```toml
+# Cargo.toml
+sudp = "~0.1"
+```
+
+```json
+// package.json
+"@sudp-protocol/authorizer": "~0.1.0",
+"@sudp-protocol/requester":  "~0.1.0"
+```
+
+## Citing
+
+If you use SUDP in academic work, please cite the paper:
+
+```bibtex
+@misc{sudp2026,
+  title  = {Secret-Use Delegation Protocol for Agentic Systems},
+  year   = {2026},
+  eprint = {2604.24920},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  url    = {https://arxiv.org/abs/2604.24920}
+}
+```
 
 ## Security
 
