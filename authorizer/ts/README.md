@@ -78,6 +78,14 @@ doesn't — silent drift is the failure mode. This package is the single
 source of truth for the TS side, paired with a conformance suite that
 checks it agrees with the Rust crate on golden vectors.
 
+## End-to-end protocol walkthrough
+
+For how this package fits with the Rust custodian across all three
+phases — including a byte-level conformance map — see
+[**EXAMPLES.md**](../../EXAMPLES.md) at the repo root. A complete
+Authorizer-side walkthrough that doubles as a conformance test lives in
+[`test/protocol_flow.test.ts`](test/protocol_flow.test.ts).
+
 ## Status
 
 Pre-1.0, alongside the Rust crate. Wire format and trait shapes may move

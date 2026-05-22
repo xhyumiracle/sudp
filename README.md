@@ -41,6 +41,12 @@ sudp/
 | [`custodian/rust`](custodian/rust/) | Custodian-side Rust crate (publishes as `sudp` on crates.io) | pre-1.0, working |
 | [`authorizer/ts`](authorizer/ts/) | Authorizer-side TypeScript SDK (publishes as `@sudp/authorizer`) | pre-1.0, scaffolded with cross-language β conformance |
 
+## How the protocol runs end-to-end
+
+See [**EXAMPLES.md**](EXAMPLES.md) for a per-phase walkthrough of how the
+three roles cooperate, with byte-level alignment between the Rust
+custodian and the TypeScript authorizer.
+
 ## Pre-1.0
 
 Wire format and trait shapes may still move before the 1.0 cut. See each package's own
