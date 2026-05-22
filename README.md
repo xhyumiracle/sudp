@@ -39,11 +39,14 @@ if `R` is fully compromised (prompt injection, runtime shim, etc.).
 
 ## Packages
 
-| Role | Source | Published as | Status |
-|------|--------|--------------|--------|
-| **Custodian** (T) | Rust crate at [`custodian/rust`](custodian/rust/) | [`sudp`](https://crates.io/crates/sudp) on crates.io | pre-1.0, working |
-| **Authorizer** (A) | TypeScript SDK at [`authorizer/ts`](authorizer/ts/) | [`@sudp-protocol/authorizer`](https://www.npmjs.com/package/@sudp-protocol/authorizer) on npm | pre-1.0, cross-language β conformance locked |
-| **Requester** (R) | TypeScript types + op builders at [`requester/ts`](requester/ts/) | [`@sudp-protocol/requester`](https://www.npmjs.com/package/@sudp-protocol/requester) on npm | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
+All three are pre-1.0; wire format may move before 1.0. Pin minor
+versions in production (see [Pre-1.0](#pre-10)).
+
+| Role | Source | Published as | Notes |
+|------|--------|--------------|-------|
+| **Custodian** (T) | [`custodian/rust`](custodian/rust/) | [`sudp`](https://crates.io/crates/sudp) on crates.io | full protocol implementation |
+| **Authorizer** (A) | [`authorizer/ts`](authorizer/ts/) | [`@sudp-protocol/authorizer`](https://www.npmjs.com/package/@sudp-protocol/authorizer) on npm | β / KDF / AEAD; cross-language byte-anchored against the Custodian |
+| **Requester** (R) | [`requester/ts`](requester/ts/) | [`@sudp-protocol/requester`](https://www.npmjs.com/package/@sudp-protocol/requester) on npm | wire-shape types + op builders only — no crypto, no HTTP, no framework |
 
 ```
 sudp/
