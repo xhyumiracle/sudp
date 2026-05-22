@@ -7,11 +7,7 @@
 [![npm @sudp-protocol/requester](https://img.shields.io/npm/v/%40sudp-protocol%2Frequester.svg?label=%40sudp-protocol%2Frequester)](https://www.npmjs.com/package/@sudp-protocol/requester)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Reference implementation of the SUDP protocol defined in:
-
-> Xiaohang Yu, Hejia Geng, Xinmeng Zeng, William Knottenbelt.
-> *SUDP: Secret-Use Delegation Protocol for Agentic Systems.*
-> [`arXiv:2604.24920`](https://arxiv.org/abs/2604.24920), 2026.
+Reference implementation of [arXiv:2604.24920](https://arxiv.org/abs/2604.24920) — see [Cite this paper](#cite-this-paper).
 
 sudp lets an autonomous **Requester** (R) propose a secret-backed
 operation, an **Authorizer** (A) authorize exactly that operation, and a
@@ -34,6 +30,24 @@ the secret.
 
 R never sees `s` and gains no reusable authority over it — even if R is
 fully compromised (prompt injection, runtime shim, etc.).
+
+## Cite this paper
+
+```bibtex
+@misc{yu2026sudp,
+  title         = {SUDP: Secret-Use Delegation Protocol for Agentic Systems},
+  author        = {Xiaohang Yu and Hejia Geng and Xinmeng Zeng and William Knottenbelt},
+  year          = {2026},
+  eprint        = {2604.24920},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CR},
+  url           = {https://arxiv.org/abs/2604.24920}
+}
+```
+
+> Xiaohang Yu, Hejia Geng, Xinmeng Zeng, and William Knottenbelt.
+> "SUDP: Secret-Use Delegation Protocol for Agentic Systems."
+> arXiv preprint arXiv:2604.24920 (2026).
 
 ## Packages
 
@@ -105,24 +119,6 @@ sudp = "~0.1"
 "@sudp-protocol/authorizer": "~0.1.0",
 "@sudp-protocol/requester":  "~0.1.0"
 ```
-
-## Citing
-
-```bibtex
-@misc{yu2026sudp,
-  title         = {SUDP: Secret-Use Delegation Protocol for Agentic Systems},
-  author        = {Xiaohang Yu and Hejia Geng and Xinmeng Zeng and William Knottenbelt},
-  year          = {2026},
-  eprint        = {2604.24920},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.CR},
-  url           = {https://arxiv.org/abs/2604.24920}
-}
-```
-
-> Xiaohang Yu, Hejia Geng, Xinmeng Zeng, and William Knottenbelt.
-> "SUDP: Secret-Use Delegation Protocol for Agentic Systems."
-> arXiv preprint arXiv:2604.24920 (2026).
 
 ## Security
 
