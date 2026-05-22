@@ -10,8 +10,9 @@
 This repository is the **reference implementation** of the SUDP protocol
 defined in:
 
-> *Secret-Use Delegation Protocol for Agentic Systems.*
-> [`arXiv:2604.24920`](https://arxiv.org/abs/2604.24920).
+> Xiaohang Yu, Hejia Geng, Xinmeng Zeng, William Knottenbelt.
+> *SUDP: Secret-Use Delegation Protocol for Agentic Systems.*
+> [`arXiv:2604.24920`](https://arxiv.org/abs/2604.24920), 2026.
 
 `sudp` lets an autonomous **Requester** *propose* a secret-backed operation,
 an **Authorizer** *authorize* exactly that operation, and a **Custodian**
@@ -132,15 +133,22 @@ sudp = "~0.1"
 If you use SUDP in academic work, please cite the paper:
 
 ```bibtex
-@misc{sudp2026,
-  title  = {Secret-Use Delegation Protocol for Agentic Systems},
-  year   = {2026},
-  eprint = {2604.24920},
+@misc{yu2026sudp,
+  title         = {SUDP: Secret-Use Delegation Protocol for Agentic Systems},
+  author        = {Xiaohang Yu and Hejia Geng and Xinmeng Zeng and William Knottenbelt},
+  year          = {2026},
+  eprint        = {2604.24920},
   archivePrefix = {arXiv},
   primaryClass  = {cs.CR},
-  url    = {https://arxiv.org/abs/2604.24920}
+  url           = {https://arxiv.org/abs/2604.24920}
 }
 ```
+
+Plain text:
+
+> Xiaohang Yu, Hejia Geng, Xinmeng Zeng, and William Knottenbelt.
+> "SUDP: Secret-Use Delegation Protocol for Agentic Systems."
+> arXiv preprint arXiv:2604.24920 (2026).
 
 ## Security
 
