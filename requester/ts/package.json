@@ -1,0 +1,48 @@
+{
+  "name": "@sudp/requester",
+  "version": "0.1.0",
+  "description": "Requester-side SUDP types and operation builders. Wire-shape only — no crypto, no HTTP, no framework adapters.",
+  "license": "Apache-2.0",
+  "author": "Miracle <xhyumiracle@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xhyumiracle/sudp",
+    "directory": "requester/ts"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "sudp",
+    "secret-use-delegation",
+    "requester",
+    "agent",
+    "agent-security"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

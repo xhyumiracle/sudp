@@ -29,17 +29,29 @@ Reusable authority does not cross `R`'s boundary.
 ```
 sudp/
   custodian/
-    rust/        ← Rust implementation of the Custodian (this is what runs T)
+    rust/        ← Rust implementation of the Custodian (T)
   authorizer/
-    ts/          ← (planned) TypeScript SDK for the Authorizer (browser/passkey)
+    ts/          ← TypeScript SDK for the Authorizer (A) — browser/passkey/HSM
+  requester/
+    ts/          ← TypeScript types + op builders for the Requester (R) — agent-side
   LICENSE
   SECURITY.md
 ```
 
 | Package | Role | Status |
 |---------|------|--------|
-| [`custodian/rust`](custodian/rust/) | Custodian-side Rust crate (publishes as `sudp` on crates.io) | pre-1.0, working |
-| [`authorizer/ts`](authorizer/ts/) | Authorizer-side TypeScript SDK (publishes as `@sudp/authorizer`) | pre-1.0, scaffolded with cross-language β conformance |
+| [`custodian/rust`](custodian/rust/) | Custodian Rust crate (publishes as `sudp`) | pre-1.0, working |
+| [`authorizer/ts`](authorizer/ts/) | Authorizer TS SDK (publishes as `@sudp/authorizer`) | pre-1.0, cross-language β conformance locked |
+| [`requester/ts`](requester/ts/) | Requester TS types + builders (publishes as `@sudp/requester`) | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
+
+### Building an agent against SUDP
+
+Agent authors typically need only [`@sudp/requester`](requester/ts/):
+it gives you typed `Operation` builders (`useOp`, `exportOp`, etc.) and
+shape validators, but **no transport** — wire it up to whatever HTTP
+client your stack uses to reach the Custodian. SUDP intentionally does
+not ship framework adapters; the Requester is the most replaceable layer
+and every agent framework writes this glue its own way.
 
 ## How the protocol runs end-to-end
 
