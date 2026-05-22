@@ -103,5 +103,5 @@ H(o), changes β, breaks σ verification, T rejects.
 - The TS runner consumes [`authorizer/ts/`](../../authorizer/ts/) and
   [`requester/ts/`](../../requester/ts/) via `file:` links so a single
   `npm install` works.
-- The protocol-level explanation, with byte-level cross-language
-  alignment, lives in [`EXAMPLES.md`](../../EXAMPLES.md).
+- The byte-level cross-language alignment table lives in the
+  [top-level README](../../README.md#cross-language-alignment).

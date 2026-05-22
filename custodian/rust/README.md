@@ -76,8 +76,9 @@ let response = custodian.execute_use(&redeemed, &sealed, |target, s_o| {
 
 See [`examples/end_to_end.rs`](examples/end_to_end.rs) for a runnable variant and
 [`tests/e2e.rs`](tests/e2e.rs) for adversarial cases (tampering, replay, rotation
-lockout, revocation). For the cross-role data flow with the matching
-TypeScript authorizer, see [`../../EXAMPLES.md`](../../EXAMPLES.md).
+lockout, revocation). For the three-role flow with the TypeScript Authorizer
+and Requester talking over HTTP, see
+[`../../examples/protocol-demo/`](../../examples/protocol-demo/).
 
 ---
 

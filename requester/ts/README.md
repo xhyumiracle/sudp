@@ -94,9 +94,9 @@ const op = customOp("co-sign", {
 
 ## End-to-end protocol walkthrough
 
-See [`../../EXAMPLES.md`](../../EXAMPLES.md) at the repo root for the
-three-role data flow showing where the Requester sits relative to the
-Authorizer and Custodian.
+Runnable three-process demo over HTTP showing where the Requester sits
+relative to the Authorizer and Custodian:
+[`../../examples/protocol-demo/`](../../examples/protocol-demo/).
 
 ## Status
 

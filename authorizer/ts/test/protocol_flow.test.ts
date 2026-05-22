@@ -24,7 +24,8 @@
  *
  * Every intermediate byte string asserted below is byte-locked against the
  * Rust side: change either side and this test, plus its Rust twin, fail
- * together. See `EXAMPLES.md` at the repo root for the protocol context.
+ * together. See the top-level README for the protocol context and the
+ * cross-language alignment table.
  */
 
 import { describe, expect, it } from "vitest";

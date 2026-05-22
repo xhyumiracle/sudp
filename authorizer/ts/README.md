@@ -71,11 +71,15 @@ const wrapped = aeadSeal(Wc, plaintext, wrapBindingAd(credentialId));
 
 ## End-to-end protocol walkthrough
 
-For how this package fits with the Rust custodian across all three
-phases — including a byte-level conformance map — see
-[**EXAMPLES.md**](../../EXAMPLES.md) at the repo root. A complete
-Authorizer-side walkthrough that doubles as a conformance test lives in
-[`test/protocol_flow.test.ts`](test/protocol_flow.test.ts).
+For how this package fits with the Rust Custodian and the Requester
+across all three phases:
+
+- Runnable, three-process demo over HTTP:
+  [`../../examples/protocol-demo/`](../../examples/protocol-demo/).
+- Byte-level conformance map: the [top-level
+  README](../../README.md#cross-language-alignment).
+- Authorizer-side walkthrough as a conformance test:
+  [`test/protocol_flow.test.ts`](test/protocol_flow.test.ts).
 
 ## Status
 

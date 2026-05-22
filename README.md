@@ -53,20 +53,45 @@ client your stack uses to reach the Custodian. SUDP intentionally does
 not ship framework adapters; the Requester is the most replaceable layer
 and every agent framework writes this glue its own way.
 
-## How the protocol runs end-to-end
+## See it run
 
-Three reading paths, increasing in concreteness:
+Two reading paths:
 
-1. **[EXAMPLES.md](EXAMPLES.md)** — per-phase walkthrough with ASCII data
-   flow diagrams and per-step pointers into both implementations.
-2. **[`examples/protocol-demo/`](examples/protocol-demo/)** — a runnable
-   demo. One `./run.sh` builds everything and spawns three processes
-   (Rust Custodian, R and A in a Node script) talking over HTTP with
-   annotated logs of every wire interaction, including a tampered-grant
-   rejection sanity check.
-3. The per-package READMEs ([`custodian/rust`](custodian/rust/),
-   [`authorizer/ts`](authorizer/ts/), [`requester/ts`](requester/ts/))
-   for API-level usage.
+- **[`examples/protocol-demo/`](examples/protocol-demo/)** — `./run.sh`
+  builds the three packages, spawns the Rust Custodian, runs a Node
+  script that plays the Requester and Authorizer roles, prints
+  colour-coded annotated logs of every wire interaction, and finishes
+  with a tampered-grant rejection sanity check.
+- The per-package READMEs ([`custodian/rust`](custodian/rust/),
+  [`authorizer/ts`](authorizer/ts/), [`requester/ts`](requester/ts/))
+  for API-level usage.
+
+## Cross-language alignment
+
+Every byte string the Authorizer produces and the Custodian expects MUST
+agree. The conformance suite locks each primitive at the byte level —
+and the role examples above use exactly the same primitives, so any
+composite shape stays aligned by construction.
+
+| Surface | Rust anchor | TS anchor |
+|---------|-------------|-----------|
+| `canonical(o)` | `Operation::canonical_bytes` unit tests | `conformance.test.ts: canonical: nested ordering` |
+| `β` + `DS_BIND` | `beta_matches_ts_authorizer_conformance_vector` | `conformance.test.ts: β: matches Rust...` |
+| `derive_wrapping_key` | `derive_wrapping_key_matches_ts_authorizer_conformance_vector` | `conformance.test.ts: deriveWrappingKey: matches Rust...` |
+| AEAD encrypt (fixed nonce) | `aead_matches_ts_authorizer_conformance_vector` | `conformance.test.ts: aeadEncrypt: matches Rust...` |
+| `wrap_ad` layout | `WrapBinding::to_canonical_ad` tests | `conformance.test.ts: wrap_ad: DS_WRAP ‖ cid ‖ ver_be` |
+| `seal_ad` layout | `phases::setup::seal_ad` (setup tests) | `conformance.test.ts: seal_ad: DS_SEAL ‖ ver_be` |
+| `WRAP_VERSION` ↔ `CURRENT_VERSION` | `state::CURRENT_VERSION = 1` | `conformance.test.ts: WRAP_VERSION matches Rust...` |
+
+Run both halves; CI does the same on every push:
+
+```bash
+cd custodian/rust && cargo test
+cd authorizer/ts  && npm test
+cd requester/ts   && npm test
+```
+
+Either side failing means the cross-language protocol invariant broke.
 
 ## Pre-1.0
 
