@@ -24,7 +24,7 @@ pub use auth::{Authenticator, AuthenticatorContext, EnrolledCredential};
 pub use csprng::Csprng;
 pub use domain::DomainSeparator;
 pub use hash::Hash;
-pub use kdf::Kdf;
+pub use kdf::{derive_wrapping_key, Kdf};
 pub use kem::{Kem, KemError};
 pub use wrap::{KeyWrap, WrapBinding};
 

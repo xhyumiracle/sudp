@@ -24,4 +24,4 @@ export { sha256 } from "./hash.js";
 export { computeBinding, DS_BIND } from "./binding.js";
 export { deriveWrappingKey } from "./kdf.js";
 export { wrapBindingAd, sealAd, DS_WRAP, DS_SEAL, WRAP_VERSION } from "./aad.js";
-export { aeadSeal, aeadOpen } from "./aead.js";
+export { aeadEncrypt, aeadSeal, aeadOpen } from "./aead.js";
