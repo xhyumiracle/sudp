@@ -28,10 +28,7 @@ fn op_use(target: &str, redeemer: &str) -> Operation {
             redeemer: redeemer.into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     }
 }
 
@@ -46,10 +43,7 @@ fn op_write(target: &str, redeemer: &str) -> Operation {
             redeemer: redeemer.into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     }
 }
 
@@ -64,10 +58,7 @@ fn op_rotate(redeemer: &str) -> Operation {
             redeemer: redeemer.into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     }
 }
 
@@ -82,10 +73,7 @@ fn op_enroll(redeemer: &str, new_cid_b64: &str) -> Operation {
             redeemer: redeemer.into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     }
 }
 
@@ -100,10 +88,7 @@ fn op_revoke(redeemer: &str, revoked_cid_b64: &str) -> Operation {
             redeemer: redeemer.into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     }
 }
 
@@ -805,10 +790,7 @@ fn custom_act_type_passes_redemption_and_caller_dispatches() {
             redeemer: "custodian-X".into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     };
     let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
@@ -861,10 +843,7 @@ mod export_hpke_test {
                     bytes: "ignored-by-this-test".into(),
                 }),
             },
-            valid: Valid {
-                iat: 1_000_000,
-                exp: Some(1_000_000 + 600),
-            },
+            valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
         }
     }
 
@@ -917,7 +896,7 @@ mod export_hpke_test {
         let op_canonical = redeemed.o.canonical_bytes().unwrap();
         let op_hash = Sha256::hash(&op_canonical);
 
-        // T executes export with paper §5.6 III.2 standard stitching.
+        // T executes export with  standard stitching.
         let artifact: ExportArtifact = custodian
             .execute_export(redeemed, &sealed, |op_hash, s_o| {
                 seal_export::<StdPrimitives, DhKemP256HkdfSha256>(&recipient_pk, op_hash, s_o)
@@ -947,7 +926,7 @@ fn xdevice_envelope_round_trips_grant() {
     use rand::rngs::OsRng;
     use sudp::xdevice;
 
-    // Generate ephemeral key pairs for U and T (paper §7.2 assumes pk_T
+    // Generate ephemeral key pairs for U and T ( assumes pk_T
     // arrives authenticated by some out-of-band channel — we skip that part
     // and just verify the envelope crypto).
     let sk_u = EphemeralSecret::random(&mut OsRng);
@@ -1378,10 +1357,7 @@ fn canonical_rejects_float_in_operation_scope() {
             redeemer: "T".into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 0,
-            exp: Some(1_000_000_000),
-        },
+        valid: Valid::single_use(0, Some(1_000_000_000)),
     };
     let res = o.canonical_bytes();
     assert!(matches!(res, Err(sudp::Error::CanonicalFloatRejected)));
@@ -1404,98 +1380,25 @@ fn canonical_accepts_integers_strings_in_scope() {
             redeemer: "T".into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: 0,
-            exp: Some(1_000_000_000),
-        },
+        valid: Valid::single_use(0, Some(1_000_000_000)),
     };
     let bytes = o.canonical_bytes().unwrap();
     assert!(!bytes.is_empty());
 }
 
-// ── execute_export_to_requester tests ────────────────────────────────────
-
-fn op_export_to_requester(target: &str, redeemer: &str) -> Operation {
-    Operation {
-        act: Act {
-            kind: ActType::Export,
-            target: target.into(),
-            scope: serde_json::json!({}),
-        },
-        bind: Bind {
-            redeemer: redeemer.into(),
-            recipient: None, // signals ownership-transfer mode
-        },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
-    }
-}
+// ── strict-recipient + multiplicity rejection ────────────────────────────
 
 #[test]
-fn export_to_requester_returns_plaintext_to_caller() {
-    // The SaaS-custodian shape: agent over TLS asks for s_o, custodian
-    // returns it plain. ActType::Export + bind.recipient = None.
-    let credential_id = b"cred-otr".to_vec();
+fn export_without_recipient_is_rejected_at_redeem() {
+    // Export MUST carry bind.recipient = Some(pk). Phase II.3 rejects
+    // recipient = None up front. Deployments that need raw s_o out
+    // generate their own ephemeral keypair and act as the recipient.
+    let credential_id = b"cred-strict-exp".to_vec();
     let auth_secret = fresh_secret();
     let wrapping_key = WrappingKey::from_bytes(vec![0x80u8; 32]);
     let prf_salt = vec![0x81u8; 32];
 
-    let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"sk_live_owned_by_requester".to_vec());
-
-    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR");
-    let sealed = custodian
-        .setup(
-            protected,
-            MockEnrollment {
-                credential_id: credential_id.clone(),
-                secret: auth_secret.clone(),
-            },
-            prf_salt,
-            wrapping_key.clone(),
-            &(),
-        )
-        .unwrap();
-
-    let r = custodian.issue_freshness();
-    let o = op_export_to_requester("env.api_key", "c-OTR");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
-    let grant = Grant::<MockAuthenticator> {
-        o,
-        r: r.to_vec(),
-        credential_id: credential_id.clone(),
-        wrapping_key: wrapping_key.clone(),
-        assertion: sign(&auth_secret, &credential_id, &beta),
-        opt: GrantOpt::default(),
-    };
-    let redeemed = custodian
-        .redeem_grant(grant, &(), &sealed, 1_000_100)
-        .unwrap();
-
-    // Ownership-transfer dispatch hands s_o to the handler.
-    let observed: Vec<u8> = custodian
-        .execute_export_to_requester(redeemed, &sealed, |target, s_o| {
-            assert_eq!(target, "env.api_key");
-            Ok(s_o.to_vec())
-        })
-        .unwrap();
-    assert_eq!(observed, b"sk_live_owned_by_requester");
-}
-
-#[test]
-fn export_to_requester_rejects_when_recipient_is_some() {
-    // If bind.recipient is Some, the operation is KEM-sealed mode — the
-    // wrong dispatch function is selected. Crate must reject.
-    use sudp::RecipientPk;
-
-    let credential_id = b"cred-otr2".to_vec();
-    let auth_secret = fresh_secret();
-    let wrapping_key = WrappingKey::from_bytes(vec![0x90u8; 32]);
-    let prf_salt = vec![0x91u8; 32];
-
-    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR2");
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-STRICT");
     let sealed = custodian
         .setup(
             ProtectedState::new(),
@@ -1513,20 +1416,14 @@ fn export_to_requester_rejects_when_recipient_is_some() {
     let o = Operation {
         act: Act {
             kind: ActType::Export,
-            target: "env.x".into(),
+            target: "env.api_key".into(),
             scope: serde_json::json!({}),
         },
         bind: Bind {
-            redeemer: "c-OTR2".into(),
-            recipient: Some(RecipientPk {
-                alg: "hpke-p256".into(),
-                bytes: "ignored".into(),
-            }),
+            redeemer: "c-STRICT".into(),
+            recipient: None,
         },
-        valid: Valid {
-            iat: 1_000_000,
-            exp: Some(1_000_000 + 600),
-        },
+        valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     };
     let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
     let grant = Grant::<MockAuthenticator> {
@@ -1537,71 +1434,22 @@ fn export_to_requester_rejects_when_recipient_is_some() {
         assertion: sign(&auth_secret, &credential_id, &beta),
         opt: GrantOpt::default(),
     };
-    let redeemed = custodian
-        .redeem_grant(grant, &(), &sealed, 1_000_100)
-        .unwrap();
-
-    let res = custodian.execute_export_to_requester(redeemed, &sealed, |_, _| Ok(()));
-    assert!(matches!(res, Err(sudp::Error::Malformed(_))));
-}
-
-#[test]
-fn execute_export_kem_rejects_when_recipient_is_none() {
-    // Inverse direction: ownership-transfer-shaped op routed to the
-    // KEM dispatch path must fail with MissingRecipient.
-    let credential_id = b"cred-otr3".to_vec();
-    let auth_secret = fresh_secret();
-    let wrapping_key = WrappingKey::from_bytes(vec![0xA0u8; 32]);
-    let prf_salt = vec![0xA1u8; 32];
-
-    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR3");
-    let sealed = custodian
-        .setup(
-            ProtectedState::new(),
-            MockEnrollment {
-                credential_id: credential_id.clone(),
-                secret: auth_secret.clone(),
-            },
-            prf_salt,
-            wrapping_key.clone(),
-            &(),
-        )
-        .unwrap();
-
-    let r = custodian.issue_freshness();
-    let o = op_export_to_requester("env.x", "c-OTR3");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
-    let grant = Grant::<MockAuthenticator> {
-        o,
-        r: r.to_vec(),
-        credential_id: credential_id.clone(),
-        wrapping_key: wrapping_key.clone(),
-        assertion: sign(&auth_secret, &credential_id, &beta),
-        opt: GrantOpt::default(),
-    };
-    let redeemed = custodian
-        .redeem_grant(grant, &(), &sealed, 1_000_100)
-        .unwrap();
-
-    let res = custodian.execute_export(redeemed, &sealed, |_, _| {
-        Ok(sudp::phases::consumption::ExportArtifact {
-            encapsulated_key: vec![],
-            sealed_payload: vec![],
-        })
-    });
+    let res = custodian.redeem_grant(grant, &(), &sealed, 1_000_100);
     assert!(matches!(res, Err(sudp::Error::MissingRecipient)));
 }
 
 #[test]
-fn redeem_accepts_export_with_no_recipient() {
-    // Phase II.3 no longer rejects Export + recipient=None — the choice of
-    // dispatch mode is deferred to the execute_* function the caller picks.
-    let credential_id = b"cred-otr4".to_vec();
-    let auth_secret = fresh_secret();
-    let wrapping_key = WrappingKey::from_bytes(vec![0xB0u8; 32]);
-    let prf_salt = vec![0xB1u8; 32];
+fn multiplicity_unbounded_is_rejected_in_v01() {
+    // Multiplicity::Unbounded is recognised on the wire but not
+    // implemented; redemption fails with MultiplicityNotImplemented.
+    use sudp::Multiplicity;
 
-    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-OTR4");
+    let credential_id = b"cred-mult".to_vec();
+    let auth_secret = fresh_secret();
+    let wrapping_key = WrappingKey::from_bytes(vec![0xC0u8; 32]);
+    let prf_salt = vec![0xC1u8; 32];
+
+    let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-MULT");
     let sealed = custodian
         .setup(
             ProtectedState::new(),
@@ -1616,7 +1464,8 @@ fn redeem_accepts_export_with_no_recipient() {
         .unwrap();
 
     let r = custodian.issue_freshness();
-    let o = op_export_to_requester("env.x", "c-OTR4");
+    let mut o = op_use("env.x", "c-MULT");
+    o.valid.multiplicity = Multiplicity::Unbounded;
     let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -1626,27 +1475,20 @@ fn redeem_accepts_export_with_no_recipient() {
         assertion: sign(&auth_secret, &credential_id, &beta),
         opt: GrantOpt::default(),
     };
-    // Redemption must succeed — no MissingRecipient at Phase II.3 anymore.
     let res = custodian.redeem_grant(grant, &(), &sealed, 1_000_100);
-    assert!(res.is_ok());
+    assert!(matches!(res, Err(sudp::Error::MultiplicityNotImplemented)));
 }
 
 #[test]
 fn valid_check_works_standalone() {
     // QoL: Valid::check can be called directly without an Operation.
-    let v = Valid {
-        iat: 1_000_000,
-        exp: Some(1_000_500),
-    };
+    let v = Valid::single_use(1_000_000, Some(1_000_500));
     assert!(v.check(1_000_200, 300).is_ok());
     assert!(matches!(
         v.check(1_001_000, 300),
         Err(sudp::Error::OperationExpired)
     ));
-    let future = Valid {
-        iat: 2_000_000,
-        exp: None,
-    };
+    let future = Valid::single_use(2_000_000, None);
     assert!(matches!(
         future.check(1_000_000, 300),
         Err(sudp::Error::OperationIatSkew)

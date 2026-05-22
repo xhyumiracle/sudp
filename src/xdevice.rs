@@ -1,4 +1,4 @@
-//! Cross-device confidentiality envelope (paper §7.2).
+//! Cross-device confidentiality envelope.
 //!
 //! When `U` and `T` do not share a live TLS session — typical when the user
 //! holds the passkey on a phone and the custodian runs on hosted
@@ -19,9 +19,9 @@
 //! - The ECDH (or other) key-agreement step itself. The caller computes `ss`
 //!   with whatever primitive is appropriate (`p256::ecdh`, `x25519-dalek`,
 //!   an HSM, a PAKE) and passes the raw shared secret in. SUDP does not
-//!   define a `KeyExchange` trait — paper §5.3 lists ECDH only in the §7.2
+//!   define a `KeyExchange` trait —  lists ECDH only in the
 //!   profile, not the abstract primitive set.
-//! - **`pk_T` trust establishment** — paper §7.2 ("Authenticated key
+//! - **`pk_T` trust establishment** —  ("Authenticated key
 //!   agreement is required for confidentiality") lists four profile options
 //!   (signature under `T`'s long-term key, binding to an existing
 //!   authenticated orchestration session, an OOB channel like a QR code, or
@@ -37,7 +37,7 @@ use crate::grant::Grant;
 use crate::primitives::{domain::DS_XD_ENC, Aead, Authenticator, Hash, Kdf, PrimitiveSuite};
 use crate::Result;
 
-/// Derive the cross-device session key (paper §7.2):
+/// Derive the cross-device session key:
 /// `k_xd = KDF(ss; r, DS_xd_enc ‖ pk_U ‖ pk_T)`.
 ///
 /// - `ss` — raw shared secret from the key-agreement step (e.g.
@@ -64,7 +64,7 @@ pub fn derive_session_key<S: PrimitiveSuite>(
     Ok(k_xd)
 }
 
-/// The cross-device AEAD associated data: `H(pk_U ‖ pk_T ‖ r)` (paper §7.2).
+/// The cross-device AEAD associated data: `H(pk_U ‖ pk_T ‖ r)`.
 ///
 /// Channel-binds both ephemeral public keys and the freshness token so that
 /// any in-flight substitution fails AEAD authentication.
@@ -80,7 +80,7 @@ pub fn channel_binding_ad<S: PrimitiveSuite>(
     S::Hash::hash(&buf)
 }
 
-/// Seal a grant for cross-device transport (paper §7.2).
+/// Seal a grant for cross-device transport.
 ///
 /// Output is the wire ciphertext `ct_G = Enc_{k_xd}(canonical(G); AD)`.
 /// Caller is responsible for transporting `(pk_u_bytes, ct_G)` to `T`; `T`
@@ -98,7 +98,7 @@ pub fn seal_grant<S: PrimitiveSuite, A: Authenticator>(
     S::Aead::seal(k_xd, &grant_bytes, &ad)
 }
 
-/// Open a cross-device sealed grant on `T`'s side (paper §7.2).
+/// Open a cross-device sealed grant on `T`'s side.
 ///
 /// `T` derives the same `k_xd` from its own end of the key agreement, then
 /// runs the standard Phase II.3 redemption pipeline on the recovered Grant.

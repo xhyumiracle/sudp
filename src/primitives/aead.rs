@@ -1,4 +1,4 @@
-//! IND-CCA AEAD with associated-data authentication (paper §5.3).
+//! IND-CCA AEAD with associated-data authentication.
 
 use crate::Result;
 
@@ -47,7 +47,7 @@ pub trait Aead {
     }
 }
 
-/// XChaCha20-Poly1305 implementation of [`Aead`] (paper §7: AEAD profile).
+/// XChaCha20-Poly1305 implementation of [`Aead`] (: AEAD profile).
 ///
 /// 24-byte nonces (random nonces are safe), 16-byte tag, 32-byte key.
 #[cfg(feature = "std-primitives")]

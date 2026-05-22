@@ -1,4 +1,4 @@
-//! Key-wrap interface specialised to key material (paper §5.3).
+//! Key-wrap interface specialised to key material.
 //!
 //! `Wrap` binds wrapping context primarily through the derivation of `W` (the
 //! wrapping key). AEAD-as-wrap profiles additionally authenticate the same
@@ -13,7 +13,7 @@ use core::marker::PhantomData;
 use super::aead::Aead;
 use super::domain::DS_WRAP;
 
-/// Wrapping-context binding (paper §5.2): the per-credential `cid_c` and the
+/// Wrapping-context binding: the per-credential `cid_c` and the
 /// wrapping epoch `ver`.
 ///
 /// Constructed at each `wrap` / `unwrap` call site so the type system makes

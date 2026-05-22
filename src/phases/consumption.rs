@@ -1,4 +1,4 @@
-//! Phase III — Grant Consumption (paper §5.6, §5.7).
+//! Phase III — Grant Consumption.
 //!
 //! ```text
 //!     III.0  unwrap K with W* ; M ← Dec_K(C) ; s_o := M[target]
@@ -70,7 +70,7 @@ pub struct OpenedState {
 // ── III.1 use ─────────────────────────────────────────────────────────────
 
 /// Phase III.1 — `use`: hand `s_o` to a caller-supplied handler inside `T`'s
-/// boundary (paper §5.6 III.1).
+/// boundary.
 ///
 /// The handler runs against the authority-bearing secret bytes; it must not
 /// store, log, or otherwise leak them. The crate guarantees only that the
@@ -80,7 +80,7 @@ pub struct OpenedState {
 ///
 /// ## One-shot consumption
 ///
-/// `redeemed` is consumed **by value** to enforce paper §6.4's "one-shot
+/// `redeemed` is consumed **by value** to enforce 's "one-shot
 /// execution" invariant in the type system: an approved use is a one-shot
 /// continuation, not a reusable session token. A caller that wants to retry
 /// after a transient handler failure must redeem a fresh grant (re-issue
@@ -101,7 +101,7 @@ where
 
 // ── III.2 export ──────────────────────────────────────────────────────────
 
-/// A recipient-protected delivery artefact π (paper §5.6 III.2).
+/// A recipient-protected delivery artefact π.
 #[derive(Debug, Clone)]
 pub struct ExportArtifact {
     /// `ct_d` (encapsulated ephemeral key, KEM-specific bytes).
@@ -110,27 +110,28 @@ pub struct ExportArtifact {
     pub sealed_payload: Vec<u8>,
 }
 
-/// Phase III.2 — `export` (KEM-sealed delivery to a third-party recipient).
+/// Phase III.2 — `export`: KEM-sealed delivery to the recipient named in
+/// `o.bind.recipient`. `s_o` leaves `T` only in a form cryptographically
+/// protected for that recipient.
 ///
-/// Standard ASU-preserving export per paper §5.6 III.2: `s_o` leaves `T`
-/// only in a form cryptographically protected for the recipient identified
-/// by `o.bind.recipient`. Use this when the recipient lives **outside `R`'s
-/// trust boundary** (a downstream service, another device, a specialised
-/// sub-agent).
+/// `bind.recipient` MUST be `Some(pk)`. The crate has no separate
+/// dispatch for "ownership-transfer to the requester" — deployments that
+/// need raw `s_o` out (the SaaS / TLS-trusted case) generate an ephemeral
+/// keypair, use it as `bind.recipient`, decap server-side, and forward
+/// the plaintext over their own confidential transport. The "should the
+/// secret leave T's boundary" decision is then explicitly owned by the
+/// deployment, not encoded in a crate-level flag.
 ///
 /// The KEM and KDF stitching is realised by the caller via the
-/// `seal_for_recipient` closure, so deployments can plug in HPKE (the
-/// standard profile) or any IND-CCA2 KEM. The closure is invoked with:
+/// `seal_for_recipient` closure, so deployments can plug in HPKE or any
+/// IND-CCA2 KEM. The closure is invoked with:
 /// - `op_hash`: `H(canonical(o))` so it can bind both KDF info and AEAD AD.
 /// - `s_o`: the secret bytes to seal.
 ///
 /// It returns the [`ExportArtifact`].
 ///
-/// `act.kind` MUST be `ActType::Export` and `o.bind.recipient` MUST be
-/// `Some`. For ownership-transfer to `R` (the requester), see
-/// [`execute_export_to_requester`].
-///
-/// Consumes `redeemed` by value — see [`execute_use`] for the rationale.
+/// `act.kind` MUST be `ActType::Export`. Consumes `redeemed` by value —
+/// see [`execute_use`] for the rationale.
 pub fn execute_export<S, F>(
     redeemed: RedeemedGrant,
     sealed: &SealedState,
@@ -156,66 +157,7 @@ where
     seal_for_recipient(&op_hash, s_o)
 }
 
-/// Phase III.2 — `export` (ownership-transfer to the requester `R`).
-///
-/// Paper §5.6 III.2 explicit caveat:
-///
-/// > "if U authorizes an export with `bind.recipient = R`, the operation
-/// > is a deliberate ownership-transfer that falls outside SUDP's CRC and
-/// > ASU non-disclosure guarantees and must be surfaced as such at
-/// > authorization time."
-///
-/// In this mode `T` hands `s_o` to `R` as plaintext — the secret leaves
-/// `T`'s boundary. KEM-sealing adds no security when `R` is the final
-/// consumer (the user is deliberately transferring ownership), so the
-/// crate skips it; the caller is responsible for transporting the bytes
-/// over an authenticated confidential channel (TLS / mTLS).
-///
-/// ## Required deployment obligations
-///
-/// 1. **Authorization-time disclosure**: `U`'s authorization UI MUST
-///    surface this operation as **"ownership-transfer to the requester"**
-///    — distinct from the standard `execute_export` ("seal for recipient
-///    X"). The user must consciously authorize giving the secret away,
-///    not delegating its use.
-/// 2. **Transport**: the closure's returned bytes contain `s_o` in
-///    plaintext. The deployment MUST transport them over an authenticated
-///    confidential channel.
-///
-/// The crate cannot enforce either obligation. They are explicitly stated
-/// here so a paper-faithful integration is audit-traceable.
-///
-/// ## API shape
-///
-/// `act.kind` MUST be `ActType::Export`; `bind.recipient` MUST be `None`.
-/// The closure receives `(target, s_o)` and returns whatever value the
-/// deployment wants in the response (typically `Vec<u8>` for an HTTP body
-/// or a wrapped string).
-///
-/// Consumes `redeemed` by value (paper §6.4 one-shot execution).
-pub fn execute_export_to_requester<S, F, R>(
-    redeemed: RedeemedGrant,
-    sealed: &SealedState,
-    handler: F,
-) -> Result<R>
-where
-    S: PrimitiveSuite,
-    F: FnOnce(&str, &[u8]) -> Result<R>,
-{
-    if redeemed.o.act.kind != ActType::Export {
-        return Err(crate::Error::ActTypeMismatch("expected ActType::Export"));
-    }
-    if redeemed.o.bind.recipient.is_some() {
-        return Err(crate::Error::Malformed(
-            "execute_export_to_requester: bind.recipient must be None (KEM-sealed delivery uses execute_export instead)",
-        ));
-    }
-    let opened = open::<S>(&redeemed, sealed)?;
-    let s_o = opened.m.target(&redeemed.o.act.target)?;
-    handler(&redeemed.o.act.target, s_o)
-}
-
-/// Paper §5.6 III.2 standard composition: `(K_d, ct_d) ← Encap(pk)`;
+/// Standard III.2 composition: `(K_d, ct_d) ← Encap(pk)`;
 /// `k_d ← KDF(K_d; ⊥, H(o))`; `δ ← Enc_{k_d}(s_o; H(o))`.
 ///
 /// Use this as the body of [`execute_export`]'s closure when you want the
@@ -278,7 +220,7 @@ pub struct LifecycleOutput {
     pub k_prime: Zeroizing<Vec<u8>>,
 }
 
-/// Phase III.3 — lifecycle / state-update (paper §5.6 III.3, §5.7 default
+/// Phase III.3 — lifecycle / state-update (,  default
 /// recoverability policy).
 ///
 /// Steps:
@@ -298,13 +240,13 @@ pub struct LifecycleOutput {
 ///
 /// ## One-shot consumption
 ///
-/// `redeemed` is consumed by value (paper §6.4); a lifecycle mutation is not
+/// `redeemed` is consumed by value; a lifecycle mutation is not
 /// a re-runnable operation. See [`execute_use`] for the rationale.
 ///
 /// ## `next_prf_salt` binding contract
 ///
 /// The `next_prf_salt` parameter MUST equal the `η^next_{c*}` value the user
-/// placed inside `o.act.scope` at Phase II.2 (paper §5.5). The crate does
+/// placed inside `o.act.scope` at Phase II.2. The crate does
 /// **not** introspect `scope` to enforce this — `scope` is profile-shaped
 /// JSON opaque to sudp. If the caller passes a `next_prf_salt` that diverges
 /// from what's in `scope`, the rotation succeeds locally but the next
@@ -412,7 +354,7 @@ pub fn execute_lifecycle<S: PrimitiveSuite>(
     })
 }
 
-/// Phase III.3 enrollment helper (paper §5.7 "Lifecycle extensions").
+/// Phase III.3 enrollment helper.
 ///
 /// Adds a new credential entry to `Σ'` after [`execute_lifecycle`] has run.
 /// Inserts `(cid_+, pk_+)` into `Reg`, appends `(cid_+, η_+, K̂_+)` to
@@ -444,7 +386,7 @@ pub fn add_credential_after_lifecycle<S: PrimitiveSuite, A: crate::primitives::A
     Ok(state)
 }
 
-/// Phase III.3 revocation helper (paper §5.7 "Lifecycle extensions").
+/// Phase III.3 revocation helper.
 ///
 /// Removes a credential from `Reg`, from the credentials list, and from the
 /// peer map (the peer-map removal must also happen inside the lifecycle

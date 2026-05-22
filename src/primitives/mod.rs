@@ -1,5 +1,5 @@
-//! Abstract cryptographic primitives (paper §5.3) and their standard
-//! realisations (paper §7).
+//! Abstract cryptographic primitives and their standard
+//! realisations.
 //!
 //! Every primitive is a trait so the protocol layer can be exercised with
 //! deterministic mocks in tests, and so deployments can swap in HSM-backed,
@@ -52,7 +52,7 @@ pub use kdf::HkdfSha256;
 #[cfg_attr(docsrs, doc(cfg(feature = "std-primitives")))]
 pub use wrap::AeadWrap;
 
-/// Bundle of the standard primitive profile (paper §7 Table 1).
+/// Bundle of the standard primitive profile ( Table 1).
 ///
 /// `StdPrimitives` lets a deployment pick the whole standard profile in one
 /// type parameter rather than naming each primitive individually. It groups:
@@ -87,7 +87,7 @@ pub trait PrimitiveSuite {
     type Kdf: Kdf;
     /// IND-CCA AEAD with associated data.
     type Aead: Aead;
-    /// Key-wrap interface (paper §5.3 — derivation binds context).
+    /// Key-wrap interface ( — derivation binds context).
     type Wrap: KeyWrap;
     /// Cryptographically secure randomness source.
     type Csprng: Csprng;

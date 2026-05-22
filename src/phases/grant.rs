@@ -1,4 +1,4 @@
-//! Phase II — Authorization Grant (paper §5.5).
+//! Phase II — Authorization Grant.
 //!
 //! II.1 (request) is two state-only operations: `T` issues `r` and prepares
 //! the conveyance payload; both are handled by the [`FreshnessStore`](crate::FreshnessStore)
@@ -40,24 +40,31 @@ pub struct OpValidationCtx<'a> {
 ///
 /// Rules enforced (in order):
 /// 1. `o.valid` time window (expiry + `iat` skew).
-/// 2. `o.bind.redeemer` matches the custodian's identity (or skipped).
+/// 2. `o.valid.multiplicity = One` — v0.1 does not implement multi-use
+///    sessions; `Unbounded` is rejected up front so a deployment can't
+///    issue a grant whose redemption semantics aren't implemented yet.
+/// 3. `o.bind.redeemer` matches the custodian's identity (or skipped).
+/// 4. `Export` operations require `bind.recipient = Some(pk)`.
+///    Ownership-transfer-style flows (caller wants raw `s_o`) are the
+///    deployment's responsibility: generate an ephemeral keypair, use it
+///    as the recipient, decap server-side, forward over the deployment's
+///    confidential transport. The crate has no separate "raw output"
+///    dispatch and reflects no special-case for `recipient = R`.
 ///
-/// Notes on rules **not** enforced here:
-/// - Rotation-class `W*_next` presence depends on grant-level `opt`, not
-///   on `o` alone; that check stays in the per-grant pipeline.
-/// - `Export + bind.recipient = ?` is **not** validated here either: paper
-///   §5.6 III.2 admits two export modes — KEM-sealed delivery
-///   (`recipient = Some(KEM pubkey)`) and ownership-transfer to the
-///   requester (`recipient = None`). The dispatch function chosen by the
-///   caller ([`crate::phases::consumption::execute_export`] vs
-///   [`crate::phases::consumption::execute_export_to_requester`])
-///   enforces its own recipient requirement.
+/// Note: rotation-class `W*_next` presence depends on grant-level `opt`,
+/// not on `o` alone; that check stays in the per-grant pipeline.
 pub fn validate_op_against(o: &Operation, ctx: &OpValidationCtx<'_>) -> Result<()> {
     o.check_validity(ctx.now_unix, ctx.iat_skew_secs)?;
+    if o.valid.multiplicity != crate::operation::Multiplicity::One {
+        return Err(crate::Error::MultiplicityNotImplemented);
+    }
     if let RedeemerPolicy::Equals(expected) = ctx.redeemer {
         if !constant_time_eq(o.bind.redeemer.as_bytes(), expected.as_bytes()) {
             return Err(crate::Error::RedeemerMismatch);
         }
+    }
+    if o.act.kind == crate::operation::ActType::Export && o.bind.recipient.is_none() {
+        return Err(crate::Error::MissingRecipient);
     }
     Ok(())
 }
@@ -101,7 +108,7 @@ pub struct RedeemInputs<'a, A: Authenticator> {
     pub now_unix: u64,
 }
 
-/// Phase II.3 — redeem `G` (paper §5.5 II.3).
+/// Phase II.3 — redeem `G`.
 ///
 /// Steps in order:
 /// 1. Consume `r` from `S` (single-use; reject if absent or expired).

@@ -1,4 +1,4 @@
-//! Stable, pairwise-disjoint domain-separation labels (paper §5.3).
+//! Stable, pairwise-disjoint domain-separation labels.
 //!
 //! Every `info` or `ad` argument that needs domain separation carries one of
 //! these labels. Labels are byte-literal constants with the `sudp/v1/` prefix
@@ -6,12 +6,12 @@
 
 /// Wrapping-key derivation label.
 ///
-/// Used in `W_c = KDF(y_c; η_c, DS_wrap ‖ cid ‖ ver)` (paper §5.2).
+/// Used in `W_c = KDF(y_c; η_c, DS_wrap ‖ cid ‖ ver)`.
 pub const DS_WRAP: &[u8] = b"sudp/v1/wrap";
 
 /// Channel binding label.
 ///
-/// Used in `β = H(DS_bind ‖ r ‖ H(o))` (paper §5.5).
+/// Used in `β = H(DS_bind ‖ r ‖ H(o))`.
 pub const DS_BIND: &[u8] = b"sudp/v1/bind";
 
 /// Protected-state sealing label.
@@ -19,10 +19,10 @@ pub const DS_BIND: &[u8] = b"sudp/v1/bind";
 /// Used as the AEAD `ad` for `C = Enc_K(M; DS_seal ‖ ver)`.
 pub const DS_SEAL: &[u8] = b"sudp/v1/seal";
 
-/// HPKE delivery-key derivation label (paper §5.6 III.2).
+/// HPKE delivery-key derivation label.
 pub const DS_DELIVERY: &[u8] = b"sudp/v1/delivery";
 
-/// Cross-device handshake AEAD label (paper §7.2).
+/// Cross-device handshake AEAD label.
 pub const DS_XD_ENC: &[u8] = b"sudp/v1/xd-enc";
 
 /// Convenience enum surfacing labels at the public API.

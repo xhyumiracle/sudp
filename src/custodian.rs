@@ -6,7 +6,7 @@
 //! to the [`phases`] modules.
 //!
 //! Sealed-state persistence is intentionally **not** owned by `Custodian` —
-//! atomic write semantics (paper §5.6 III.3) are a deployment concern. The
+//! atomic write semantics are a deployment concern. The
 //! façade returns the new `SealedState` and leaves I/O to the caller.
 
 use core::marker::PhantomData;
@@ -16,9 +16,8 @@ use crate::grant::{Grant, RedeemedGrant};
 use crate::operation::Operation;
 use crate::phases::{
     consumption::{
-        add_credential_after_lifecycle, execute_export, execute_export_to_requester,
-        execute_lifecycle, execute_use, open, remove_credential_after_lifecycle, ExportArtifact,
-        LifecycleOutput, Mutation, OpenedState,
+        add_credential_after_lifecycle, execute_export, execute_lifecycle, execute_use, open,
+        remove_credential_after_lifecycle, ExportArtifact, LifecycleOutput, Mutation, OpenedState,
     },
     grant::{redeem, RedeemInputs, RedeemerPolicy},
     setup::{run as run_setup, SetupInputs, SetupOutputs},
@@ -29,7 +28,7 @@ use crate::Result;
 
 use serde::{Deserialize, Serialize};
 
-/// Phase II.1 conveyance payload `T → U` (paper §5.5 II.1).
+/// Phase II.1 conveyance payload `T → U`.
 ///
 /// Carries `(o, r, {(cid_c, η_c)})`. `o` is the operation `U` will render
 /// and sign; `r` is the single-use freshness token; the credential list is
@@ -76,7 +75,7 @@ where
     pub identity: Option<String>,
     /// Maximum `iat` skew, in seconds. Defaults to 300.
     pub iat_skew_secs: u64,
-    /// Freshness store `S` (paper §5.4 I.3).
+    /// Freshness store `S`.
     pub freshness: F,
     _marker: PhantomData<(S, A)>,
 }
@@ -150,7 +149,7 @@ where
     /// Phase II.1 — one-shot conveyance helper.
     ///
     /// Issues a fresh `r` and returns the full payload `T → U`:
-    /// `(o, r, {(cid_c, η_c)})` (paper §5.5 II.1). The caller forwards this
+    /// `(o, r, {(cid_c, η_c)})`. The caller forwards this
     /// payload to `U` over the authenticated channel; `U` uses the
     /// `credentials` list to drive an authenticator allowList and renders
     /// `o` before signing β.
@@ -205,7 +204,7 @@ where
     }
 
     /// Phase III.1 — `use`. Consumes `redeemed` to enforce one-shot
-    /// execution (paper §6.4).
+    /// execution.
     pub fn execute_use<R, H>(
         &self,
         redeemed: RedeemedGrant,
@@ -218,10 +217,11 @@ where
         execute_use::<S, H, R>(redeemed, sealed, handler)
     }
 
-    /// Phase III.2 — `export` (KEM-sealed delivery). Consumes `redeemed`.
-    /// `o.bind.recipient` MUST be `Some`. For ownership-transfer to the
-    /// requester (`recipient = None`), see
-    /// [`Self::execute_export_to_requester`].
+    /// Phase III.2 — `export`. Consumes `redeemed`. `o.bind.recipient`
+    /// MUST be `Some(pk)`; the crate has no separate ownership-transfer
+    /// dispatch — deployments that need raw `s_o` out generate an
+    /// ephemeral keypair, use it as the recipient, and decap server-side.
+    /// See the free function [`crate::phases::consumption::execute_export`].
     pub fn execute_export<H>(
         &self,
         redeemed: RedeemedGrant,
@@ -232,27 +232,6 @@ where
         H: FnOnce(&[u8; 32], &[u8]) -> Result<ExportArtifact>,
     {
         execute_export::<S, H>(redeemed, sealed, seal_for_recipient)
-    }
-
-    /// Phase III.2 — `export` (ownership-transfer to requester `R`).
-    ///
-    /// **NOT ASU-preserving.** Paper §5.6 III.2 caveat: `s_o` leaves `T`'s
-    /// boundary in plaintext. Deployment MUST (1) surface this as
-    /// ownership-transfer in `U`'s authorization UI and (2) transport
-    /// returned bytes over an authenticated confidential channel.
-    /// See the free function
-    /// [`crate::phases::consumption::execute_export_to_requester`] for the
-    /// full rationale.
-    pub fn execute_export_to_requester<R, H>(
-        &self,
-        redeemed: RedeemedGrant,
-        sealed: &SealedState,
-        handler: H,
-    ) -> Result<R>
-    where
-        H: FnOnce(&str, &[u8]) -> Result<R>,
-    {
-        execute_export_to_requester::<S, H, R>(redeemed, sealed, handler)
     }
 
     /// Phase III.3 — lifecycle (write / rotate). For `enroll` and `revoke`

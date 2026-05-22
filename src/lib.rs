@@ -14,7 +14,7 @@
 //! - [`phases`] — Phase I (setup), Phase II (grant validation), Phase III
 //!   (consumption dispatch).
 //! - [`custodian`] — façade over the phases.
-//! - [`batch`] — multi-op batch grant (paper §6.5 "Batch extension").
+//! - [`batch`] — multi-op batch grant.
 //! - [`canonical`] — JCS-style deterministic JSON encoding.
 //! - [`passkey`] — WebAuthn realisation of [`primitives::Authenticator`]
 //!   (feature `webauthn`).
@@ -58,7 +58,7 @@ pub use custodian::{ConveyanceCredential, ConveyancePayload, Custodian};
 pub use error::{Error, Result};
 pub use freshness::{FreshnessStore, FreshnessToken, InMemoryFreshness};
 pub use grant::{Grant, GrantOpt, RedeemedGrant, WrappingKey};
-pub use operation::{Act, ActType, Bind, Operation, RecipientPk, Valid};
+pub use operation::{Act, ActType, Bind, Multiplicity, Operation, RecipientPk, Valid};
 pub use state::{
     PeerMap, PrfSalt, ProtectedState, Registry, SealedCredential, SealedState, Version, WrappedKey,
     CURRENT_VERSION,

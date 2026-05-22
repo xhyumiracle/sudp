@@ -50,7 +50,7 @@ pub enum Error {
     MissingRecipient,
 
     /// Attempted to revoke the credential that signed the very same grant.
-    /// Paper-level fail-safe (paper §5.7 "Lifecycle extensions"): the acting
+    /// Paper-level fail-safe: the acting
     /// credential cannot be the target of its own revocation invocation;
     /// the user must authorize the revocation with a different credential.
     #[error("acting credential cannot revoke itself")]
@@ -67,6 +67,11 @@ pub enum Error {
     /// batch.
     #[error("batch must contain at most one rotation-class operation")]
     BatchMultipleRotationOps,
+
+    /// Operation declared `multiplicity = Unbounded`. v0.1 implements only
+    /// single-use semantics; multi-use session bookkeeping is deferred.
+    #[error("multiplicity = Unbounded is not implemented in this version")]
+    MultiplicityNotImplemented,
 
     /// A canonical-serialization path encountered a non-integer numeric
     /// value. Operation `scope` MUST NOT contain floats — `serde_json::Number`

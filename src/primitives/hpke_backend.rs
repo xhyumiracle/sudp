@@ -1,10 +1,10 @@
-//! HPKE-DHKEM realisation of [`Kem`] (paper §7 Table 1, §5.6 III.2).
+//! HPKE-DHKEM realisation of [`Kem`] ( Table 1, ).
 //!
 //! Wraps the RustCrypto [`hpke`] crate. The crate's `hpke::Kem` is the same
 //! abstract shape as our [`Kem`] trait (encap returns `(SharedSecret, EncappedKey)`),
 //! so the wrapper is mechanical.
 //!
-//! The default profile [`DhKemP256HkdfSha256`] matches paper §7 Table 1.
+//! The default profile [`DhKemP256HkdfSha256`] matches  Table 1.
 //! Other algorithm choices can be wired by parameterising [`HpkeDhKem`] with a
 //! different `hpke::Kem` (e.g. `hpke::kem::X25519HkdfSha256`).
 
@@ -47,5 +47,5 @@ pub fn gen_keypair<K: HpkeKemTrait>() -> (K::PrivateKey, K::PublicKey) {
     K::gen_keypair(&mut rng)
 }
 
-/// Standard SUDP export-profile KEM (paper §7 Table 1): DHKEM-P256 / HKDF-SHA-256.
+/// Standard SUDP export-profile KEM ( Table 1): DHKEM-P256 / HKDF-SHA-256.
 pub type DhKemP256HkdfSha256 = HpkeDhKem<hpke::kem::DhP256HkdfSha256>;

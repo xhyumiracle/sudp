@@ -1,9 +1,9 @@
-//! Phase I — Setup (paper §5.4).
+//! Phase I — Setup.
 //!
 //! Builds the initial sealed state `Σ_0 := (C, {(cid_c, η_c, K̂_c)}, Reg, ver)`
 //! from one enrolled credential and an initial protected state `M_0`.
 //!
-//! The user-side derivation of `W_c` happens on the client (paper §5.4 I.2);
+//! The user-side derivation of `W_c` happens on the client;
 //! the custodian receives `W_c` over the confidential leg and never sees
 //! `y_c` or the PRF key. This function therefore takes `W_c` as an input.
 
@@ -42,7 +42,7 @@ pub struct SetupOutputs {
 /// 4. `K̂_c = Wrap_{W_c}(K)`.
 /// 5. Assemble `Σ_0`.
 ///
-/// Per paper §5.4 invariants:
+/// Per  invariants:
 /// - After this function returns, no value held in `Σ_0` is sufficient to
 ///   recover `M_0` without the corresponding authenticator invocation.
 /// - The transient `K` and `W_c` are dropped (via zeroize) on return.
@@ -65,7 +65,7 @@ pub fn run<S: PrimitiveSuite, A: Authenticator>(
 
     // 3. Seal M.
     // Inject the first peer entry so subsequent rotations can rewrap K under
-    // a known W_c (paper §5.7 default policy).
+    // a known W_c ( default policy).
     let cid_b64 = base64::engine::general_purpose::STANDARD.encode(&credential.credential_id);
     protected.peers.insert(cid_b64, wrapping_key.clone());
     let m_bytes = protected.to_canonical()?;

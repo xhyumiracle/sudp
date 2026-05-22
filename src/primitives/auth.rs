@@ -1,9 +1,9 @@
 //! Authenticator interface — the U-side tamper-resistant module
-//! (paper §5.3, §7).
+//!.
 //!
 //! ## What this trait models, and what it does NOT
 //!
-//! Paper §5.3 models each user-side credential `c` as a module `Aut_c` with
+//!  models each user-side credential `c` as a module `Aut_c` with
 //! non-extractable internal keys producing
 //! - one signature `σ ← Sig_{sk_c}(μ)` per user-verified invocation,
 //! - and one or more PRF outputs `y_i ← PRF_c(η_i)`.

@@ -145,10 +145,7 @@ fn main() -> Result<()> {
             redeemer: "demo-custodian".into(),
             recipient: None,
         },
-        valid: Valid {
-            iat: now(),
-            exp: Some(now() + 600),
-        },
+        valid: Valid::single_use(now(), Some(now() + 600)),
     };
     let beta = compute_beta_for_op::<SudpSha256>(&r, &o)?;
     let assertion = sign(&auth_secret, &credential_id, &beta);

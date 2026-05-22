@@ -10,7 +10,7 @@ pub type Version = u16;
 /// Current wrapping epoch.
 pub const CURRENT_VERSION: Version = 1;
 
-/// Per-credential PRF salt `η_c` (paper §5.4 setup).
+/// Per-credential PRF salt `η_c` ( setup).
 pub type PrfSalt = Vec<u8>;
 
 /// Wrapped state key `K̂_c = Wrap_{W_c}(K)`.
@@ -33,7 +33,7 @@ pub struct SealedCredential {
 /// Persistent sealed state `Σ`.
 ///
 /// `read`/`write_atomic` are deliberately not provided here — atomicity
-/// (paper §5.6 III.3) is a deployment concern; the crate exposes typed
+/// is a deployment concern; the crate exposes typed
 /// (de)serialisation only.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SealedState {

@@ -1,4 +1,4 @@
-//! `Grant` and `RedeemedGrant` (paper §5.5).
+//! `Grant` and `RedeemedGrant`.
 //!
 //! The grant is the protocol artefact representing user authorization of `o`:
 //!
@@ -19,10 +19,10 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::operation::Operation;
 use crate::primitives::Authenticator;
 
-/// Wrapping key `W*` carried in a grant (paper §5.5 II.2).
+/// Wrapping key `W*` carried in a grant.
 ///
 /// **Confidential leg.** `U` must transmit this to `T` over a channel that
-/// guarantees confidentiality (paper §5.3). Any party observing `W*` can
+/// guarantees confidentiality. Any party observing `W*` can
 /// unwrap `K̂_{c*}` from sealed state and decrypt `M`.
 ///
 /// Length is profile-defined (32 bytes for the standard XChaCha20-Poly1305
@@ -54,7 +54,7 @@ impl WrappingKey {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GrantOpt {
     /// `W*_next` derived in the same authenticator invocation from
-    /// `η^next_{c*}` (paper §5.5 II.2, last paragraph).
+    /// `η^next_{c*}` (, last paragraph).
     ///
     /// Required for any [`crate::ActType::is_rotation_class`] operation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -82,7 +82,7 @@ pub struct Grant<A: Authenticator> {
     pub opt: GrantOpt,
 }
 
-/// Phase II.3 output (custodian-internal, paper §5.5 II.3).
+/// Phase II.3 output (custodian-internal, ).
 ///
 /// `r` and `σ*` have been consumed. The redeemed grant is what Phase III
 /// inputs.

@@ -13,7 +13,7 @@ pub use crate::custodian::{ConveyanceCredential, ConveyancePayload, Custodian};
 pub use crate::error::{Error, Result};
 pub use crate::freshness::{FreshnessStore, InMemoryFreshness};
 pub use crate::grant::{Grant, GrantOpt, RedeemedGrant, WrappingKey};
-pub use crate::operation::{Act, ActType, Bind, Operation, RecipientPk, Valid};
+pub use crate::operation::{Act, ActType, Bind, Multiplicity, Operation, RecipientPk, Valid};
 pub use crate::phases::consumption::{ExportArtifact, OpenedState};
 pub use crate::primitives::{
     Aead, Authenticator, AuthenticatorContext, Csprng, DomainSeparator, Hash, Kdf, KeyWrap,

@@ -1,4 +1,4 @@
-//! Freshness pool `S` (paper §5.5).
+//! Freshness pool `S`.
 //!
 //! `T` initialises a bounded single-use pool of `(r, τ_r)` tokens at Phase I.3.
 //! Each token is issued once at Phase II.1 and consumed exactly once at Phase

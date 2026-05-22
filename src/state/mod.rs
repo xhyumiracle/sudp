@@ -1,4 +1,4 @@
-//! Persistent sealed state `Σ` and its decrypted form `M` (paper §5.2).
+//! Persistent sealed state `Σ` and its decrypted form `M`.
 //!
 //! `Σ_0 := ( C, {(cid_c, η_c, K̂_c)}, Reg, ver )`
 //!

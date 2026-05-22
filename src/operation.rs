@@ -1,4 +1,4 @@
-//! `Operation` — the canonical U↔T contract (paper §5.4).
+//! `Operation` — the canonical U↔T contract.
 //!
 //! An authorized operation is the tuple `o = (act, bind, valid)`:
 //!
@@ -18,7 +18,7 @@ use crate::Result;
 /// Marked `#[non_exhaustive]` so future canonical variants can be added
 /// without a breaking change, and so external profiles can use the
 /// [`Custom`](ActType::Custom) variant to extend the dispatch vocabulary
-/// per paper §5.6 ("Extensibility of the dispatch vocabulary").
+/// per  ("Extensibility of the dispatch vocabulary").
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
@@ -35,7 +35,7 @@ pub enum ActType {
     Enroll,
     /// Remove a credential. Phase III.3.
     Revoke,
-    /// Profile-defined dispatch type (paper §5.6 last paragraph).
+    /// Profile-defined dispatch type ( last paragraph).
     ///
     /// The string is the profile-specific type name (e.g. `"co-sign"`,
     /// `"stream-decrypt"`). Custom types preserve β/σ verification at
@@ -52,7 +52,7 @@ pub enum ActType {
 
 impl ActType {
     /// True iff this act class mutates sealed state and therefore requires
-    /// `W*_next` in [`crate::GrantOpt`] (paper §5.6 III.3, §5.7).
+    /// `W*_next` in [`crate::GrantOpt`] (, ).
     ///
     /// Returns `false` for [`Self::Custom`]; see the variant docs.
     pub fn is_rotation_class(&self) -> bool {
@@ -72,7 +72,7 @@ pub struct Act {
     /// Identifier of the protected object inside `M` (e.g. `"env.api_key"`).
     pub target: String,
     /// Canonicalised operation-specific constraints. The deployment populates
-    /// this from the tool-call adapter (paper §6.3).
+    /// this from the tool-call adapter.
     #[serde(default)]
     pub scope: serde_json::Value,
 }
@@ -98,15 +98,38 @@ pub struct RecipientPk {
     pub bytes: String,
 }
 
+/// Operation multiplicity bound.
+///
+/// The abstract protocol enforces the multiplicity bound `U` declares in
+/// `o.valid`. The canonical values are `One` (single-use) and `Unbounded`
+/// (multi-use session).
+///
+/// **v0.1 implements only `One`.** `Unbounded` operations are recognised
+/// on the wire but rejected at redemption with
+/// [`Error::MultiplicityNotImplemented`](crate::Error::MultiplicityNotImplemented),
+/// because the multi-consumption bookkeeping under a single grant is
+/// deferred to a later release. The type-level one-shot enforcement on
+/// `RedeemedGrant` (by-value consumption at every `execute_*` site) is
+/// the v0.1 expression of single-use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Multiplicity {
+    /// Single-use: at most one consumption per redeemed grant.
+    #[default]
+    One,
+    /// Unbounded multi-use. Not implemented in v0.1.
+    Unbounded,
+}
+
 /// Validity constraints.
 ///
-/// Paper Definition 1 defines `valid := (expiry)`. The `iat` field here is a
-/// **profile-level hardening guard**: the custodian rejects grants whose
-/// claimed issue time is more than `iat_skew_secs` in the future (see
-/// [`RedeemInputs::iat_skew_secs`](crate::phases::grant::RedeemInputs)). `iat`
-/// is not part of the abstract protocol contract; profiles that don't want
-/// the skew guard set `iat = 0` and rely solely on `exp` plus the freshness
-/// token `r` for replay resistance.
+/// The `iat` field is a **profile-level hardening guard**: the custodian
+/// rejects grants whose claimed issue time is more than `iat_skew_secs` in
+/// the future (see
+/// [`RedeemInputs::iat_skew_secs`](crate::phases::grant::RedeemInputs)).
+/// `iat` is not part of the abstract protocol contract; profiles that don't
+/// want the skew guard set `iat = 0` and rely solely on `exp` plus the
+/// freshness token `r` for replay resistance.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Valid {
     /// Issued-at, unix seconds. Profile-level hardening only (see struct
@@ -116,6 +139,20 @@ pub struct Valid {
     /// custodian's own policy bounds still apply.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exp: Option<u64>,
+    /// Operation multiplicity bound (`One` by default).
+    #[serde(default)]
+    pub multiplicity: Multiplicity,
+}
+
+impl Valid {
+    /// Build a single-use validity window.
+    pub fn single_use(iat: u64, exp: Option<u64>) -> Self {
+        Self {
+            iat,
+            exp,
+            multiplicity: Multiplicity::One,
+        }
+    }
 }
 
 impl Valid {
@@ -156,7 +193,7 @@ impl Operation {
         Ok(())
     }
 
-    /// Convenience: render as canonical bytes (paper §5.4).
+    /// Convenience: render as canonical bytes.
     ///
     /// Both `U` and `T` must agree on these bytes. Built on the JCS-style
     /// encoder in [`crate::canonical`], in **strict** mode — float values

@@ -29,7 +29,7 @@ operations `U` has authorized. Reusable authority does not cross `R`'s boundary.
 
 Pre-1.0. MSRV 1.85 (driven by transitive `base64ct` 1.8+ which requires edition 2024). Wire format and trait shapes may move before the 1.0 cut.
 
-- 17 unit + 13 end-to-end tests pass (incl. HPKE export, cross-device envelope, custom act-type extension, lifecycle rotate/enroll/revoke).
+- 17 unit + 22 end-to-end tests pass (incl. HPKE export, cross-device envelope, custom act-type extension, lifecycle rotate/enroll/revoke, strict-recipient export).
 - `cargo clippy --all-targets` is clean.
 - `cargo check --no-default-features` builds.
 
@@ -97,13 +97,13 @@ lockout, revocation).
 
 | Extension | Module | Default? |
 |-----------|--------|---|
-| **Batch approve** (paper §6) — `ops = (o_1, …, o_n)` under one σ | `sudp::batch` | ✓ |
-| **Lifecycle**: `Write` / `Rotate` / `Enroll` / `Revoke` (§5.6 III.3, §5.7) | `Custodian::execute_*` | ✓ |
-| **Conveyance payload** `(o, r, {(cid_c, η_c)})` (§5.5 II.1) | `Custodian::build_conveyance` | ✓ |
-| **Recipient-protected export** (§5.6 III.2) — paper §7 standard composition | `sudp::phases::consumption::{seal_export, open_export}` | ✓ (closure-based) |
+| **Batch approve** — single σ over `ops = (o_1, …, o_n)` | `sudp::batch` | ✓ |
+| **Lifecycle**: `Write` / `Rotate` / `Enroll` / `Revoke` | `Custodian::execute_*` | ✓ |
+| **Conveyance payload** `(o, r, {(cid_c, η_c)})` | `Custodian::build_conveyance` | ✓ |
+| **Recipient-protected export** — standard `Kem + Kdf + Aead` composition | `sudp::phases::consumption::{seal_export, open_export}` | ✓ (closure-based) |
 | **HPKE-DHKEM backend** — `DhKemP256HkdfSha256` realising `Kem` | `sudp::primitives::HpkeDhKem` | feature `hpke` |
-| **Cross-device envelope** (§7.2) — `k_xd = KDF(ss; r, DS_xd_enc ‖ pk_U ‖ pk_T)` + AEAD with `AD = H(pk_U ‖ pk_T ‖ r)` | `sudp::xdevice` | ✓ |
-| **Custom act types** (§5.6 last paragraph) — `ActType::Custom(String)`; β/σ verification stays generic, deployment dispatches | `sudp::ActType::Custom` | ✓ |
+| **Cross-device envelope** — `k_xd = KDF(ss; r, DS_xd_enc ‖ pk_U ‖ pk_T)` + AEAD with `AD = H(pk_U ‖ pk_T ‖ r)` | `sudp::xdevice` | ✓ |
+| **Custom act types** — `ActType::Custom(String)`; β/σ verification stays generic, deployment dispatches | `sudp::ActType::Custom` | ✓ |
 
 ### What the cross-device module gives you
 
@@ -111,7 +111,7 @@ The crate ships the **symmetric envelope** primitives — KDF stitching plus an 
 sealing layer with channel-binding AD over `(pk_U, pk_T, r)`. It does *not* ship the
 ECDH key-agreement primitive (caller picks `p256::ecdh`, `x25519-dalek`, an HSM, etc.
 and passes the shared secret `ss` in) nor the `pk_T` trust establishment (signature
-under a long-term key, OOB QR, PAKE — all profile choices per paper §7.2). See
+under a long-term key, OOB QR, PAKE — all profile choices). See
 [`tests/e2e.rs`](tests/e2e.rs)'s `xdevice_envelope_round_trips_grant` for the full
 shape with `p256::ecdh`.
 

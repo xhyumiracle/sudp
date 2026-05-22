@@ -1,10 +1,10 @@
-//! Channel binding `β` (paper §5.5).
+//! Channel binding `β`.
 //!
 //! ```text
 //!     β = H( DS_bind ‖ r ‖ H(o) )
 //! ```
 //!
-//! Single-operation form uses `H(o)`; batch form (paper §6 "Batch extension")
+//! Single-operation form uses `H(o)`; batch form
 //! uses `H(ops)`.
 
 use crate::primitives::Hash;
@@ -61,7 +61,7 @@ mod tests {
                 redeemer: "T".into(),
                 recipient: None,
             },
-            valid: Valid { iat: 0, exp: None },
+            valid: Valid::single_use(0, None),
         }
     }
 

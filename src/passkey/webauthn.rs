@@ -1,4 +1,4 @@
-//! WebAuthn assertion verification (paper §7 standard profile).
+//! WebAuthn assertion verification ( standard profile).
 //!
 //! Checks (WebAuthn L3 §7.2 plus SUDP channel binding):
 //! 1. Decode `authenticatorData`, `clientDataJSON`, `signature`.

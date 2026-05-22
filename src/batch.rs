@@ -1,4 +1,4 @@
-//! Batch grant (paper §6 "Batch extension").
+//! Batch grant.
 //!
 //! The descriptor generalises from a single `o` to a list
 //! `ops = (o_1, …, o_n)`:

@@ -9,27 +9,36 @@ trait shapes may still move before 1.0.
 
 ### Added
 
-- `execute_export_to_requester` (and `Custodian::execute_export_to_requester`):
-  paper §5.6 III.2 ownership-transfer mode. Used when the recipient *is*
-  the requester `R` (SaaS deployments where agent talks to the custodian
-  over TLS and consumes `s_o` directly). **NOT ASU-preserving** — the
-  deployment is responsible for (1) surfacing the operation as
-  ownership-transfer in `U`'s authorization UI and (2) transporting the
-  returned bytes over an authenticated confidential channel. The crate
-  documents these obligations heavily but cannot enforce them.
-- `Valid::check(now_unix, iat_skew_secs)`: per-`Valid` validity check
-  so deployments can validate pre-built `Valid` values without round-
+- `Multiplicity` enum on `Valid` (`One` / `Unbounded`, default `One`).
+  The abstract protocol enforces a multiplicity bound declared in
+  `o.valid`; v0.1 implements only single-use (`One`). `Unbounded` is
+  recognised on the wire but rejected at redemption with
+  `Error::MultiplicityNotImplemented` — multi-use session bookkeeping
+  under a single grant is deferred to a later release.
+- `Valid::single_use(iat, exp)` helper constructor for the common
+  single-use case.
+- `Valid::check(now_unix, iat_skew_secs)`: per-`Valid` validity check so
+  deployments can validate pre-built `Valid` values without round-
   tripping through a complete `Operation`. `Operation::check_validity`
   delegates to it.
 
+### Removed
+
+- `execute_export_to_requester` (and the `Custodian` façade method).
+  `Export` operations now strictly require `bind.recipient = Some(pk)`,
+  matching the abstract protocol's recipient-bound delivery contract.
+  Deployments needing ownership-transfer-style flows (caller wants raw
+  `s_o`) generate an ephemeral keypair, act as their own recipient,
+  decap server-side, and forward the plaintext over their own
+  confidential transport. This puts the "should the secret leave T's
+  boundary" decision squarely on the deployment, rather than encoding
+  it as a crate-level flag.
+
 ### Changed
 
-- `phases::grant::validate_op_against` no longer rejects
-  `ActType::Export + bind.recipient = None`. The recipient-mode choice
-  (KEM-sealed vs ownership-transfer) is now enforced by the dispatch
-  function the caller picks: `execute_export` requires
-  `recipient = Some`, `execute_export_to_requester` requires
-  `recipient = None`.
+- `phases::grant::validate_op_against` now enforces `Export →
+  bind.recipient = Some(pk)` (paired with the removal above) and
+  rejects `multiplicity = Unbounded`.
 
 ## [0.1.0] — 2026-05-21
 
@@ -54,11 +63,11 @@ Initial release.
   under the default `webauthn` feature.
 - HPKE-DHKEM realisation of `Kem` (`HpkeDhKem<K>` with
   `DhKemP256HkdfSha256` type alias) under the optional `hpke` feature.
-- `xdevice` module: paper §7.2 cross-device confidentiality envelope —
+- `xdevice` module:  cross-device confidentiality envelope —
   `derive_session_key`, `seal_grant`, `open_grant`. Caller supplies the
   shared secret (ECDH / X25519 / HSM) and `pk_T` trust establishment.
 - `ActType::Custom(String)` plus `#[non_exhaustive]` for profile-defined
-  dispatch types per paper §5.6 ("Extensibility of the dispatch
+  dispatch types per  ("Extensibility of the dispatch
   vocabulary").
 - Phase III.2 standard composition helpers: `seal_export` / `open_export`
   implementing `(K_d, ct_d) ← Encap(pk); k_d ← KDF(K_d; ⊥, H(o));
@@ -68,7 +77,7 @@ Initial release.
 ### Security-relevant choices
 
 - `RedeemedGrant` is consumed by value across all `execute_*` paths,
-  enforcing paper §6.4 one-shot-execution at the type-system level.
+  enforcing  one-shot-execution at the type-system level.
 - `execute_revoke` refuses self-revocation (`CannotRevokeSelf`) and any
   revoke that would leave `Σ` with zero credentials (`WouldOrphanState`).
 - `redeem_batch` rejects batches containing more than one rotation-class
@@ -88,7 +97,7 @@ Initial release.
   boundary.
 - AEAD-as-wrap binds `(credential_id, version)` as associated data via
   `WrapBinding`, implementing the defense-in-depth recommendation of
-  paper §5.3.
+
 - WebAuthn assertion verification uses constant-time comparison for
   `origin`, `challenge` (= β), and `rpIdHash`. ECDSA-P256 verify runs
   through the `p256` crate (constant-time).

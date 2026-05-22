@@ -1,4 +1,4 @@
-//! Cryptographically secure randomness source (paper §5.3).
+//! Cryptographically secure randomness source.
 
 /// `CSPRNG`: cryptographically secure randomness source.
 ///

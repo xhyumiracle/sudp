@@ -1,11 +1,11 @@
-//! HKDF-style extract-then-expand KDF (paper §5.3).
+//! HKDF-style extract-then-expand KDF.
 
 use crate::Result;
 
 /// `KDF`: HKDF-style extract-then-expand with explicit domain separation in
 /// `info`.
 ///
-/// Paper §5.3: `KDF(ikm; salt, info)`. The protocol passes domain-separation
+/// : `KDF(ikm; salt, info)`. The protocol passes domain-separation
 /// labels through `info`, so concrete realisations MUST treat `info` as a
 /// distinguisher between contexts (HKDF-SHA-256 already does).
 pub trait Kdf {
@@ -20,7 +20,7 @@ pub trait Kdf {
     }
 }
 
-/// HKDF-SHA-256 implementation of [`Kdf`] (paper §7 Table 1).
+/// HKDF-SHA-256 implementation of [`Kdf`] ( Table 1).
 #[cfg(feature = "std-primitives")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std-primitives")))]
 pub struct HkdfSha256;

@@ -1,4 +1,4 @@
-//! `Reg = {cid_c → pk_c}` — credential public-key registry (paper §5.4 I.1).
+//! `Reg = {cid_c → pk_c}` — credential public-key registry.
 //!
 //! Reg is generic over the authenticator's public-key type so different
 //! backends (WebAuthn, HSM, mock) can store their own canonical form.
