@@ -39,7 +39,7 @@ sudp/
 | Package | Role | Status |
 |---------|------|--------|
 | [`custodian/rust`](custodian/rust/) | Custodian-side Rust crate (publishes as `sudp` on crates.io) | pre-1.0, working |
-| [`authorizer/ts`](authorizer/) | Authorizer-side TypeScript SDK | planned |
+| [`authorizer/ts`](authorizer/ts/) | Authorizer-side TypeScript SDK (publishes as `@sudp/authorizer`) | pre-1.0, scaffolded with cross-language β conformance |
 
 ## Pre-1.0
 

@@ -1,0 +1,56 @@
+{
+  "name": "@sudp/authorizer",
+  "version": "0.1.0",
+  "description": "Authorizer-side primitives for SUDP (Secret-Use Delegation Protocol): canonical JSON, β computation, wrapping-key derivation, AEAD-as-wrap, plus a WebAuthn adapter under the ./webauthn subpath.",
+  "license": "Apache-2.0",
+  "author": "Miracle <xhyumiracle@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xhyumiracle/sudp",
+    "directory": "authorizer/ts"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./webauthn": {
+      "types": "./dist/webauthn.d.ts",
+      "import": "./dist/webauthn.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "sudp",
+    "secret-use-delegation",
+    "authorizer",
+    "passkey",
+    "webauthn",
+    "agent-security"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

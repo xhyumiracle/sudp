@@ -89,4 +89,44 @@ mod tests {
         let b = compute_beta_for_op::<Sha256>(&[1u8; 16], &o).unwrap();
         assert_ne!(a, b);
     }
+
+    /// Cross-language conformance anchor. The same Operation and `r`
+    /// fed into `@sudp/authorizer`'s `computeBinding(DS_BIND, r, op)`
+    /// MUST produce the same 32-byte β. If you regenerate this hex,
+    /// also update the matching inline snapshot in
+    /// `authorizer/ts/test/conformance.test.ts` in the same commit so
+    /// the two sides stay locked.
+    #[test]
+    fn beta_matches_ts_authorizer_conformance_vector() {
+        let r = [0u8; 32];
+        let o = Operation {
+            act: Act {
+                kind: ActType::Use,
+                target: "env.api_key".into(),
+                scope: serde_json::json!({}),
+            },
+            bind: Bind {
+                redeemer: "custodian-id".into(),
+                recipient: None,
+            },
+            valid: Valid::single_use(1_700_000_000, None),
+        };
+
+        let canonical = o.canonical_bytes().unwrap();
+        let canonical_str = std::str::from_utf8(&canonical).unwrap();
+        assert_eq!(
+            canonical_str,
+            "{\"act\":{\"scope\":{},\"target\":\"env.api_key\",\"type\":\"use\"},\
+             \"bind\":{\"redeemer\":\"custodian-id\"},\
+             \"valid\":{\"iat\":1700000000,\"multiplicity\":\"one\"}}",
+            "canonical-encoder shape changed; TS conformance vector must change too"
+        );
+
+        let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+        let hex: String = beta.iter().map(|b| format!("{:02x}", b)).collect();
+        assert_eq!(
+            hex,
+            "6c43ba079b5316ac73e8f35e3ce59bfdefb9dee1fc964fcb39406c26169be954"
+        );
+    }
 }
