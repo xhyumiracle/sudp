@@ -4,7 +4,7 @@
 mod mock_authenticator;
 
 use mock_authenticator::{sign, MockAuthenticator, MockEnrollment};
-use sudp::beta::compute_beta_for_op;
+use sudp::beta::{compute_beta_for_op, DS_BIND};
 use sudp::primitives::{Hash, Sha256, StdPrimitives};
 use sudp::{
     Act, ActType, Bind, Custodian, Grant, GrantOpt, Operation, ProtectedState, Valid, WrappingKey,
@@ -125,7 +125,7 @@ fn phase1_setup_then_phase23_use() {
 
     // Build op and grant.
     let o = op_use("env.api_key", "custodian-A");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o: o.clone(),
@@ -175,7 +175,7 @@ fn double_redemption_is_rejected_by_freshness() {
 
     let r = custodian.issue_freshness();
     let o = op_use("env.x", "custodian-B");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o: o.clone(),
@@ -216,7 +216,7 @@ fn tampered_operation_fails_signature_check() {
     let r = custodian.issue_freshness();
     let o = op_use("env.x", "custodian-C");
     // Sign over the *original* op...
-    let beta_orig = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta_orig = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta_orig);
 
     // ...but submit a different op.
@@ -257,7 +257,7 @@ fn redeemer_mismatch_rejected() {
 
     let r = custodian.issue_freshness();
     let o = op_use("env.x", "custodian-Z"); // wrong redeemer
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -300,7 +300,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
 
     let r = custodian.issue_freshness();
     let o = op_write("env.api_key", "custodian-E");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -335,7 +335,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
     // The new wrapping-key value can open the new state.
     let r2 = custodian.issue_freshness();
     let o2 = op_use("env.api_key", "custodian-E");
-    let beta2 = compute_beta_for_op::<Sha256>(&r2, &o2).unwrap();
+    let beta2 = compute_beta_for_op::<Sha256>(DS_BIND, &r2, &o2).unwrap();
     let assertion2 = sign(&auth_secret, &credential_id, &beta2);
     let grant2 = Grant::<MockAuthenticator> {
         o: o2,
@@ -356,7 +356,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
     // The old wrapping key can no longer open the new state.
     let r3 = custodian.issue_freshness();
     let o3 = op_use("env.api_key", "custodian-E");
-    let beta3 = compute_beta_for_op::<Sha256>(&r3, &o3).unwrap();
+    let beta3 = compute_beta_for_op::<Sha256>(DS_BIND, &r3, &o3).unwrap();
     let assertion3 = sign(&auth_secret, &credential_id, &beta3);
     let grant3 = Grant::<MockAuthenticator> {
         o: o3,
@@ -408,7 +408,7 @@ fn batch_grant_validates_all_ops_under_one_signature() {
     ]);
     let ops_canonical = ops.canonical_bytes().unwrap();
     let ops_hash = Sha256::hash(&ops_canonical);
-    let beta = sudp::beta::compute_beta::<Sha256>(&r, &ops_hash);
+    let beta = sudp::beta::compute_beta::<Sha256>(DS_BIND, &r, &ops_hash);
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = BatchGrant::<MockAuthenticator> {
         ops,
@@ -477,7 +477,7 @@ fn enroll_adds_credential_and_it_can_redeem() {
     let cred_b_b64 = base64::engine::general_purpose::STANDARD.encode(&cred_b);
     let r = custodian.issue_freshness();
     let o = op_enroll("custodian-G", &cred_b_b64);
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&secret_a, &cred_a, &beta);
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -513,7 +513,7 @@ fn enroll_adds_credential_and_it_can_redeem() {
     // Now redeem under cred B and read the target.
     let r2 = custodian.issue_freshness();
     let o2 = op_use("env.api_key", "custodian-G");
-    let beta2 = compute_beta_for_op::<Sha256>(&r2, &o2).unwrap();
+    let beta2 = compute_beta_for_op::<Sha256>(DS_BIND, &r2, &o2).unwrap();
     let assertion2 = sign(&secret_b, &cred_b, &beta2);
     let grant2 = Grant::<MockAuthenticator> {
         o: o2,
@@ -569,7 +569,7 @@ fn revoke_actually_removes_credential() {
     // Enroll B.
     let r1 = custodian.issue_freshness();
     let o1 = op_enroll("custodian-H", &cred_b_b64);
-    let beta1 = compute_beta_for_op::<Sha256>(&r1, &o1).unwrap();
+    let beta1 = compute_beta_for_op::<Sha256>(DS_BIND, &r1, &o1).unwrap();
     let grant1 = Grant::<MockAuthenticator> {
         o: o1,
         r: r1.to_vec(),
@@ -603,7 +603,7 @@ fn revoke_actually_removes_credential() {
     // Revoke B (A acts, now with the post-enroll W*_next1 as its current W*).
     let r2 = custodian.issue_freshness();
     let o2 = op_revoke("custodian-H", &cred_b_b64);
-    let beta2 = compute_beta_for_op::<Sha256>(&r2, &o2).unwrap();
+    let beta2 = compute_beta_for_op::<Sha256>(DS_BIND, &r2, &o2).unwrap();
     let grant2 = Grant::<MockAuthenticator> {
         o: o2,
         r: r2.to_vec(),
@@ -629,7 +629,7 @@ fn revoke_actually_removes_credential() {
     // A grant signed by B must now fail with UnknownCredential.
     let r3 = custodian.issue_freshness();
     let o3 = op_use("env.x", "custodian-H");
-    let beta3 = compute_beta_for_op::<Sha256>(&r3, &o3).unwrap();
+    let beta3 = compute_beta_for_op::<Sha256>(DS_BIND, &r3, &o3).unwrap();
     let grant3 = Grant::<MockAuthenticator> {
         o: o3,
         r: r3.to_vec(),
@@ -676,7 +676,7 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
     // Issue a rotate op (no target mutation).
     let r = custodian.issue_freshness();
     let o = op_rotate("custodian-R");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -713,7 +713,7 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
     ] {
         let r2 = custodian.issue_freshness();
         let o2 = op_use(path, "custodian-R");
-        let beta2 = compute_beta_for_op::<Sha256>(&r2, &o2).unwrap();
+        let beta2 = compute_beta_for_op::<Sha256>(DS_BIND, &r2, &o2).unwrap();
         let assertion2 = sign(&auth_secret, &credential_id, &beta2);
         let grant2 = Grant::<MockAuthenticator> {
             o: o2,
@@ -735,7 +735,7 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
     // Old wrapping key must no longer open new state.
     let r3 = custodian.issue_freshness();
     let o3 = op_use("env.api_key", "custodian-R");
-    let beta3 = compute_beta_for_op::<Sha256>(&r3, &o3).unwrap();
+    let beta3 = compute_beta_for_op::<Sha256>(DS_BIND, &r3, &o3).unwrap();
     let assertion3 = sign(&auth_secret, &credential_id, &beta3);
     let grant3 = Grant::<MockAuthenticator> {
         o: o3,
@@ -792,7 +792,7 @@ fn custom_act_type_passes_redemption_and_caller_dispatches() {
         },
         valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     };
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -879,7 +879,7 @@ mod export_hpke_test {
         // Issue an export op.
         let r = custodian.issue_freshness();
         let o = op_export("env.api_key", "custodian-EXP", "hpke-p256-sha256-chacha20");
-        let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+        let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
         let assertion = sign(&auth_secret, &credential_id, &beta);
         let grant = Grant::<MockAuthenticator> {
             o,
@@ -968,7 +968,7 @@ fn xdevice_envelope_round_trips_grant() {
 
     let r = custodian.issue_freshness();
     let o = op_use("env.api_key", "custodian-XD");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = Grant::<MockAuthenticator> {
         o,
@@ -1092,7 +1092,7 @@ fn one_shot_execution_is_typed_redeemed_grant_is_consumed() {
 
     let r = custodian.issue_freshness();
     let o = op_use("env.x", "c-SHOT");
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let grant = Grant::<MockAuthenticator> {
         o: o.clone(),
         r: r.to_vec(),
@@ -1150,7 +1150,7 @@ fn revoke_rejects_self_revocation() {
     // Enroll B so there are ≥2 creds.
     let r1 = custodian.issue_freshness();
     let o1 = op_enroll("c-SELF", &cred_b_b64);
-    let beta1 = compute_beta_for_op::<Sha256>(&r1, &o1).unwrap();
+    let beta1 = compute_beta_for_op::<Sha256>(DS_BIND, &r1, &o1).unwrap();
     let g1 = Grant::<MockAuthenticator> {
         o: o1,
         r: r1.to_vec(),
@@ -1181,7 +1181,7 @@ fn revoke_rejects_self_revocation() {
     let cred_a_b64 = base64::engine::general_purpose::STANDARD.encode(&cred_a);
     let r2 = custodian.issue_freshness();
     let o2 = op_revoke("c-SELF", &cred_a_b64);
-    let beta2 = compute_beta_for_op::<Sha256>(&r2, &o2).unwrap();
+    let beta2 = compute_beta_for_op::<Sha256>(DS_BIND, &r2, &o2).unwrap();
     let g2 = Grant::<MockAuthenticator> {
         o: o2,
         r: r2.to_vec(),
@@ -1267,7 +1267,7 @@ fn revoke_rejects_when_it_would_orphan_state() {
     let cred_a_b64 = base64::engine::general_purpose::STANDARD.encode(&cred_a);
     let r = custodian.issue_freshness();
     let o = op_revoke("c-ORPH", &cred_a_b64);
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let g = Grant::<MockAuthenticator> {
         o,
         r: r.to_vec(),
@@ -1317,7 +1317,7 @@ fn batch_with_multiple_rotation_ops_is_rejected() {
     ]);
     let ops_canonical = ops.canonical_bytes().unwrap();
     let ops_hash = Sha256::hash(&ops_canonical);
-    let beta = sudp::beta::compute_beta::<Sha256>(&r, &ops_hash);
+    let beta = sudp::beta::compute_beta::<Sha256>(DS_BIND, &r, &ops_hash);
     let assertion = sign(&auth_secret, &credential_id, &beta);
     let grant = BatchGrant::<MockAuthenticator> {
         ops,
@@ -1425,7 +1425,7 @@ fn export_without_recipient_is_rejected_at_redeem() {
         },
         valid: Valid::single_use(1_000_000, Some(1_000_000 + 600)),
     };
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let grant = Grant::<MockAuthenticator> {
         o,
         r: r.to_vec(),
@@ -1466,7 +1466,7 @@ fn multiplicity_unbounded_is_rejected_in_v01() {
     let r = custodian.issue_freshness();
     let mut o = op_use("env.x", "c-MULT");
     o.valid.multiplicity = Multiplicity::Unbounded;
-    let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+    let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
     let grant = Grant::<MockAuthenticator> {
         o,
         r: r.to_vec(),

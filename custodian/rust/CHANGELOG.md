@@ -39,6 +39,15 @@ trait shapes may still move before 1.0.
 - `phases::grant::validate_op_against` now enforces `Export →
   bind.recipient = Some(pk)` (paired with the removal above) and
   rejects `multiplicity = Unbounded`.
+- **`β` is now domain-parametric.** `compute_beta`, `compute_beta_from_canonical`,
+  and `compute_beta_for_op` take `domain: &[u8]` as their first argument
+  instead of hardcoding `DS_BIND`. The default SUDP profile passes
+  `DS_BIND` explicitly at the call site (built-in custodian redemption
+  and batch verification both do this). Deployments that need
+  pairwise-disjoint domains (distinct setup vs. standard ceremonies,
+  etc.) pass their own domain bytes — any per-deployment separators
+  (e.g. trailing `0x00`) are folded into the domain value itself, so
+  the formula stays `H(domain ‖ r ‖ H(o))` on every call site.
 - Terminology: party formerly called "User" (symbol `U`) is now
   consistently the **Authorizer** (symbol `A`) across crate-internal
   docs and identifiers. The on-the-wire grant shape is unchanged; this

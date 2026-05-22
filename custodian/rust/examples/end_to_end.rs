@@ -18,7 +18,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use sudp::beta::compute_beta_for_op;
+use sudp::beta::{compute_beta_for_op, DS_BIND};
 use sudp::primitives::{Authenticator, EnrolledCredential, Sha256 as SudpSha256, StdPrimitives};
 use sudp::{
     Act, ActType, Bind, Custodian, Error, Grant, GrantOpt, Operation, ProtectedState, Result,
@@ -147,7 +147,7 @@ fn main() -> Result<()> {
         },
         valid: Valid::single_use(now(), Some(now() + 600)),
     };
-    let beta = compute_beta_for_op::<SudpSha256>(&r, &o)?;
+    let beta = compute_beta_for_op::<SudpSha256>(DS_BIND, &r, &o)?;
     let assertion = sign(&auth_secret, &credential_id, &beta);
     println!("  β = SHA-256(DS_bind ‖ r ‖ H(o))");
     println!("  σ* = mock-sign over β");

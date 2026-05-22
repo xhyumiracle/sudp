@@ -1,41 +1,55 @@
 //! Channel binding `β`.
 //!
 //! ```text
-//!     β = H( DS_bind ‖ r ‖ H(o) )
+//!     β = H( domain ‖ r ‖ H(o) )
 //! ```
 //!
-//! Single-operation form uses `H(o)`; batch form
-//! uses `H(ops)`.
+//! The `domain` argument is a profile-defined byte string. SUDP's canonical
+//! domain is [`DS_BIND`]; deployments that need pairwise-disjoint domains
+//! (e.g. distinct setup vs. standard ceremonies) pass their own bytes —
+//! see [`crate::primitives::domain`] for the convention of folding any
+//! separators or version tags into the domain value itself.
+//!
+//! Single-operation form uses `H(o)`; batch form uses `H(ops)`.
 
 use crate::primitives::Hash;
 use crate::Result;
 
-/// Domain-separation label for `β`. Re-exported here so callers don't have to
-/// reach into `primitives::domain`.
+/// SUDP's canonical domain-separation label for `β`. Re-exported here so
+/// callers don't have to reach into `primitives::domain`.
 pub use crate::primitives::domain::DS_BIND;
 
-/// Compute `β = H(DS_bind ‖ r ‖ op_hash)`.
+/// Compute `β = H(domain ‖ r ‖ op_hash)`.
 ///
-/// `op_hash` is `H(canonical(o))` for a single operation, or `H(canonical(ops))`
-/// for a batch.
-pub fn compute_beta<H: Hash>(r: &[u8], op_hash: &[u8; 32]) -> [u8; 32] {
-    H::hash_slices(&[DS_BIND, r, op_hash])
+/// `op_hash` is `H(canonical(o))` for a single operation, or
+/// `H(canonical(ops))` for a batch. Pass [`DS_BIND`] as `domain` for the
+/// default SUDP profile; deployment profiles may pass other bytes.
+pub fn compute_beta<H: Hash>(domain: &[u8], r: &[u8], op_hash: &[u8; 32]) -> [u8; 32] {
+    H::hash_slices(&[domain, r, op_hash])
 }
 
 /// Compute `β` directly from canonical bytes of `o`.
 ///
-/// Equivalent to `compute_beta(r, &H::hash(canonical_o))` but slightly more
-/// ergonomic at the call site.
-pub fn compute_beta_from_canonical<H: Hash>(r: &[u8], canonical_o: &[u8]) -> [u8; 32] {
+/// Equivalent to `compute_beta(domain, r, &H::hash(canonical_o))` but
+/// slightly more ergonomic at the call site.
+pub fn compute_beta_from_canonical<H: Hash>(
+    domain: &[u8],
+    r: &[u8],
+    canonical_o: &[u8],
+) -> [u8; 32] {
     let op_hash = H::hash(canonical_o);
-    compute_beta::<H>(r, &op_hash)
+    compute_beta::<H>(domain, r, &op_hash)
 }
 
 /// Compute `β` for a single [`crate::Operation`] using the crate's JCS-style
-/// canonical encoder.
-pub fn compute_beta_for_op<H: Hash>(r: &[u8], op: &crate::Operation) -> Result<[u8; 32]> {
+/// canonical encoder. Pass [`DS_BIND`] for the default SUDP profile.
+pub fn compute_beta_for_op<H: Hash>(
+    domain: &[u8],
+    r: &[u8],
+    op: &crate::Operation,
+) -> Result<[u8; 32]> {
     let canonical = op.canonical_bytes()?;
-    Ok(compute_beta_from_canonical::<H>(r, &canonical))
+    Ok(compute_beta_from_canonical::<H>(domain, r, &canonical))
 }
 
 /// Constant-time byte comparison (used by [`crate::Authenticator`] backends).
@@ -69,24 +83,33 @@ mod tests {
     fn beta_is_deterministic() {
         let r = [0xAAu8; 16];
         let o = op("x");
-        let a = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
-        let b = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+        let a = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
+        let b = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
         assert_eq!(a, b);
     }
 
     #[test]
     fn beta_changes_with_op() {
         let r = [0xAAu8; 16];
-        let a = compute_beta_for_op::<Sha256>(&r, &op("x")).unwrap();
-        let b = compute_beta_for_op::<Sha256>(&r, &op("y")).unwrap();
+        let a = compute_beta_for_op::<Sha256>(DS_BIND, &r, &op("x")).unwrap();
+        let b = compute_beta_for_op::<Sha256>(DS_BIND, &r, &op("y")).unwrap();
         assert_ne!(a, b);
     }
 
     #[test]
     fn beta_changes_with_r() {
         let o = op("x");
-        let a = compute_beta_for_op::<Sha256>(&[0u8; 16], &o).unwrap();
-        let b = compute_beta_for_op::<Sha256>(&[1u8; 16], &o).unwrap();
+        let a = compute_beta_for_op::<Sha256>(DS_BIND, &[0u8; 16], &o).unwrap();
+        let b = compute_beta_for_op::<Sha256>(DS_BIND, &[1u8; 16], &o).unwrap();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn beta_changes_with_domain() {
+        let r = [0xAAu8; 16];
+        let o = op("x");
+        let a = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
+        let b = compute_beta_for_op::<Sha256>(b"profile/v1/other", &r, &o).unwrap();
         assert_ne!(a, b);
     }
 
@@ -122,7 +145,7 @@ mod tests {
             "canonical-encoder shape changed; TS conformance vector must change too"
         );
 
-        let beta = compute_beta_for_op::<Sha256>(&r, &o).unwrap();
+        let beta = compute_beta_for_op::<Sha256>(DS_BIND, &r, &o).unwrap();
         let hex: String = beta.iter().map(|b| format!("{:02x}", b)).collect();
         assert_eq!(
             hex,

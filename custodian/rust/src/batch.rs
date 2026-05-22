@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::beta::compute_beta_from_canonical;
+use crate::beta::{compute_beta_from_canonical, DS_BIND};
 use crate::freshness::FreshnessStore;
 use crate::grant::{GrantOpt, RedeemedGrant, WrappingKey};
 use crate::operation::Operation;
@@ -195,7 +195,7 @@ where
 
     // 5. β = H(DS_bind ‖ r ‖ H(ops)).
     let ops_canonical = grant.ops.canonical_bytes()?;
-    let beta = compute_beta_from_canonical::<S::Hash>(&grant.r, &ops_canonical);
+    let beta = compute_beta_from_canonical::<S::Hash>(DS_BIND, &grant.r, &ops_canonical);
 
     // 6. Verify σ*.
     A::check_credential_binding(&grant.credential_id, &grant.assertion)?;

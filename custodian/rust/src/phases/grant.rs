@@ -5,7 +5,7 @@
 //! and direct field access on the sealed state. The crate's contribution here
 //! is II.3: grant redemption.
 
-use crate::beta::{compute_beta_for_op, constant_time_eq};
+use crate::beta::{compute_beta_for_op, constant_time_eq, DS_BIND};
 use crate::freshness::FreshnessStore;
 use crate::grant::{Grant, RedeemedGrant};
 use crate::operation::Operation;
@@ -165,7 +165,7 @@ where
         .ok_or(crate::Error::UnknownCredential)?;
 
     // 4. Recompute β'.
-    let beta = compute_beta_for_op::<S::Hash>(&grant.r, &grant.o)?;
+    let beta = compute_beta_for_op::<S::Hash>(DS_BIND, &grant.r, &grant.o)?;
 
     // 5. Authenticator-embedded credential-id check (no-op for backends with
     //    no embedded id).
