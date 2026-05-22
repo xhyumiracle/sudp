@@ -9,6 +9,17 @@ set -euo pipefail
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
 
+# ── Toolchain sanity check ─────────────────────────────────────────────
+need() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "ERROR: '$1' not found in PATH." >&2
+    echo "       $2" >&2
+    exit 1
+  }
+}
+need cargo "Install Rust via rustup: https://rustup.rs"
+need npm   "Install Node.js (includes npm): https://nodejs.org (>=20)"
+
 echo "== Building @sudp/authorizer (TS)"
 (cd "$REPO/authorizer/ts" && npm install --silent && npm run --silent build)
 

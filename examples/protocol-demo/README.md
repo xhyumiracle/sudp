@@ -21,15 +21,17 @@ coded log lines make the role boundary visible.
 
 ## Run it
 
-From this directory:
+Prerequisites: a Rust toolchain (1.85+, via [rustup](https://rustup.rs))
+and Node.js 20+. From this directory:
 
 ```bash
 ./run.sh
 ```
 
-The script builds `@sudp-protocol/authorizer`, `@sudp-protocol/requester`, the demo
-Custodian binary, installs the runner's deps, then runs the demo. End
-to end it produces output similar to:
+The script builds `@sudp-protocol/authorizer`, `@sudp-protocol/requester`,
+the demo Custodian binary, installs the runner's deps, then runs the
+demo. First run pulls a few cargo crates + npm packages; subsequent runs
+reuse the cache. End to end it produces output similar to:
 
 ```
 ═══ Phase I — Setup (Authorizer enrolls a credential at the Custodian) ═══

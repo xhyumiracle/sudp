@@ -39,9 +39,6 @@ if `R` is fully compromised (prompt injection, runtime shim, etc.).
 
 ## Packages
 
-All three are pre-1.0; wire format may move before 1.0. Pin minor
-versions in production (see [Pre-1.0](#pre-10)).
-
 | Role | Source | Published as | Notes |
 |------|--------|--------------|-------|
 | **Custodian** (T) | [`custodian/rust`](custodian/rust/) | [`sudp`](https://crates.io/crates/sudp) on crates.io | full protocol implementation |
@@ -60,18 +57,22 @@ sudp/
 
 ## Try it
 
-A single command builds all three packages, spawns the Rust Custodian
-binary, and runs a Node script that plays the Requester and Authorizer
-roles. The output is colour-coded by role and prints every wire
-interaction. The demo finishes with an adversarial sanity check —
-the Requester tampers with the operation after the Authorizer signs,
-and the Custodian rejects with `AuthorizationInvalid`.
+Prerequisites: a Rust toolchain (1.85+, via [rustup](https://rustup.rs))
+and Node.js 20+. The first run downloads cargo + npm dependencies; later
+runs reuse the build cache.
 
 ```bash
 git clone https://github.com/xhyumiracle/sudp
 cd sudp/examples/protocol-demo
 ./run.sh
 ```
+
+The script builds all three packages, spawns the Rust Custodian binary,
+and runs a Node script that plays the Requester and Authorizer roles.
+Output is colour-coded by role and prints every wire interaction. The
+demo finishes with an adversarial sanity check — the Requester tampers
+with the operation after the Authorizer signs, and the Custodian rejects
+with `AuthorizationInvalid`.
 
 For API-level usage, see the per-package READMEs:
 [`custodian/rust`](custodian/rust/) ·
