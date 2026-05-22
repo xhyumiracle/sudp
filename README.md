@@ -39,11 +39,11 @@ if `R` is fully compromised (prompt injection, runtime shim, etc.).
 
 ## Packages
 
-| Package | Role | Registry | Status |
-|---------|------|----------|--------|
-| [`custodian/rust`](custodian/rust/) | **Custodian** Rust crate | `sudp` on [crates.io](https://crates.io/crates/sudp) | pre-1.0, working |
-| [`authorizer/ts`](authorizer/ts/) | **Authorizer** TS SDK | `@sudp-protocol/authorizer` on [npm](https://www.npmjs.com/package/@sudp-protocol/authorizer) | pre-1.0, cross-language β conformance locked |
-| [`requester/ts`](requester/ts/) | **Requester** TS types + op builders | `@sudp-protocol/requester` on [npm](https://www.npmjs.com/package/@sudp-protocol/requester) | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
+| Role | Source | Published as | Status |
+|------|--------|--------------|--------|
+| **Custodian** (T) | Rust crate at [`custodian/rust`](custodian/rust/) | [`sudp`](https://crates.io/crates/sudp) on crates.io | pre-1.0, working |
+| **Authorizer** (A) | TypeScript SDK at [`authorizer/ts`](authorizer/ts/) | [`@sudp-protocol/authorizer`](https://www.npmjs.com/package/@sudp-protocol/authorizer) on npm | pre-1.0, cross-language β conformance locked |
+| **Requester** (R) | TypeScript types + op builders at [`requester/ts`](requester/ts/) | [`@sudp-protocol/requester`](https://www.npmjs.com/package/@sudp-protocol/requester) on npm | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
 
 ```
 sudp/
