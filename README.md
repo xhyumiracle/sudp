@@ -55,9 +55,18 @@ and every agent framework writes this glue its own way.
 
 ## How the protocol runs end-to-end
 
-See [**EXAMPLES.md**](EXAMPLES.md) for a per-phase walkthrough of how the
-three roles cooperate, with byte-level alignment between the Rust
-custodian and the TypeScript authorizer.
+Three reading paths, increasing in concreteness:
+
+1. **[EXAMPLES.md](EXAMPLES.md)** — per-phase walkthrough with ASCII data
+   flow diagrams and per-step pointers into both implementations.
+2. **[`examples/protocol-demo/`](examples/protocol-demo/)** — a runnable
+   demo. One `./run.sh` builds everything and spawns three processes
+   (Rust Custodian, R and A in a Node script) talking over HTTP with
+   annotated logs of every wire interaction, including a tampered-grant
+   rejection sanity check.
+3. The per-package READMEs ([`custodian/rust`](custodian/rust/),
+   [`authorizer/ts`](authorizer/ts/), [`requester/ts`](requester/ts/))
+   for API-level usage.
 
 ## Pre-1.0
 

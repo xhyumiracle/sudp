@@ -99,8 +99,9 @@ the data flow.
 
 | Role focus | File | Run with |
 |------------|------|----------|
-| Custodian + mock Authorizer | [`custodian/rust/examples/end_to_end.rs`](custodian/rust/examples/end_to_end.rs) | `cargo run --example end_to_end` |
-| Authorizer side | [`authorizer/ts/test/protocol_flow.test.ts`](authorizer/ts/test/protocol_flow.test.ts) | `npm test` |
+| **All three roles over HTTP** | [`examples/protocol-demo/`](examples/protocol-demo/) | `./run.sh` (builds everything, spawns processes, prints every wire interaction) |
+| Custodian + mock Authorizer (single process) | [`custodian/rust/examples/end_to_end.rs`](custodian/rust/examples/end_to_end.rs) | `cargo run --example end_to_end` |
+| Authorizer-side flow as a conformance test | [`authorizer/ts/test/protocol_flow.test.ts`](authorizer/ts/test/protocol_flow.test.ts) | `npm test` (in `authorizer/ts/`) |
 
 ## Cross-language alignment
 
