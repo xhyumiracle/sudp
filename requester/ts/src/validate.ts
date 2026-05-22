@@ -3,7 +3,7 @@
  *
  * Catches missing or malformed fields BEFORE they reach the wire. This is
  * deliberately not a canonical-JSON check — that lives on the Authorizer
- * and Custodian sides (in `@sudp/authorizer` and `sudp` Rust respectively).
+ * and Custodian sides (in `@sudp-protocol/authorizer` and `sudp` Rust respectively).
  */
 
 import type { Operation, Grant, ActType } from "./types.js";

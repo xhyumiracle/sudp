@@ -1,5 +1,5 @@
 {
-  "name": "@sudp/authorizer",
+  "name": "@sudp-protocol/authorizer",
   "version": "0.1.0",
   "description": "Authorizer-side primitives for SUDP (Secret-Use Delegation Protocol): canonical JSON, β computation, wrapping-key derivation, AEAD-as-wrap, plus a WebAuthn adapter under the ./webauthn subpath.",
   "license": "Apache-2.0",

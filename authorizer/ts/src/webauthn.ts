@@ -1,7 +1,7 @@
 /**
- * `@sudp/authorizer/webauthn` — WebAuthn adapter for the Authorizer side.
+ * `@sudp-protocol/authorizer/webauthn` — WebAuthn adapter for the Authorizer side.
  *
- * The core `@sudp/authorizer` package is intentionally **signer-agnostic**:
+ * The core `@sudp-protocol/authorizer` package is intentionally **signer-agnostic**:
  * it accepts a 32-byte `userKey` (= `y_c`) and does not care how the
  * Authorizer obtained it. This subpath is the WebAuthn-specific glue:
  *

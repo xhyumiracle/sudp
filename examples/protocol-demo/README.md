@@ -9,9 +9,9 @@ would use:
   `/sudp/v1/use`, `/sudp/v1/use/{id}/redeem`) mirror the skeleton a real
   deployment (e.g. safeclaw) layers its product-level API on top of.
 - **R — Requester**: a Node section in `runner.ts` that uses
-  `@sudp/requester` to build an `Operation` and posts it to T.
+  `@sudp-protocol/requester` to build an `Operation` and posts it to T.
 - **A — Authorizer**: a Node section in `runner.ts` that uses
-  `@sudp/authorizer` to compute β and mock-signs it. (Real A uses
+  `@sudp-protocol/authorizer` to compute β and mock-signs it. (Real A uses
   WebAuthn / passkey / HSM; the demo skips that ceremony with a
   deterministic SHA-256-over-secret-and-β signer the Rust side also
   knows about.)
@@ -27,7 +27,7 @@ From this directory:
 ./run.sh
 ```
 
-The script builds `@sudp/authorizer`, `@sudp/requester`, the demo
+The script builds `@sudp-protocol/authorizer`, `@sudp-protocol/requester`, the demo
 Custodian binary, installs the runner's deps, then runs the demo. End
 to end it produces output similar to:
 
@@ -38,7 +38,7 @@ to end it produces output similar to:
 [A] -> 200 sealed_state_id=… (1 cred, 51B sealed M)
 
 ═══ Phase II.1 — R proposes an operation; T issues freshness r ═══
-[R] Built Operation via @sudp/requester.useOp(...)
+[R] Built Operation via @sudp-protocol/requester.useOp(...)
 [R]     o.act    = {"type":"use","target":"env.api_key","scope":{"endpoint":"GET /repos/me"}}
 [R]     o.bind   = {"redeemer":"demo-custodian"}
 [R]     o.valid  = {"iat":…,"multiplicity":"one","exp":…}

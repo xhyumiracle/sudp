@@ -1,4 +1,4 @@
-# @sudp/requester
+# @sudp-protocol/requester
 
 > Wire-shape types and operation builders for the **SUDP** Requester role.
 
@@ -26,18 +26,18 @@ What's **not** in, and why:
 | Not included | Reason |
 |--------------|--------|
 | HTTP / RPC client | SUDP does not define an on-the-wire transport. Build your own `fetch` / gRPC / Bun.serve / etc. on top of these types. |
-| Canonical JSON, β, key derivation | `R` does no crypto. That all lives on the Authorizer side — see [`@sudp/authorizer`](../../authorizer/ts/). |
+| Canonical JSON, β, key derivation | `R` does no crypto. That all lives on the Authorizer side — see [`@sudp-protocol/authorizer`](../../authorizer/ts/). |
 | LangChain / OpenAI / Anthropic adapters | Per-framework, per-deployment. Trying to be all of them at once means being none of them well. |
 | Polling helpers / status enums | A polling shape implies a wire spec. SUDP intentionally has no normative wire spec yet. |
 
 **This is a deliberate package constitution.** If you want one of the
-above, write your own package on top of `@sudp/requester` — do not grow
+above, write your own package on top of `@sudp-protocol/requester` — do not grow
 this one.
 
 ## Usage sketch
 
 ```ts
-import { useOp, exportOp } from "@sudp/requester";
+import { useOp, exportOp } from "@sudp-protocol/requester";
 
 // 1) Build an operation in your tool-call adapter.
 const op = useOp({
@@ -55,7 +55,7 @@ const resp = await fetch("https://custodian.example.com/use", {
 });
 
 // 3) Authorization (β computation + signing + W_c derivation) happens
-//    at the Authorizer — see @sudp/authorizer for that side.
+//    at the Authorizer — see @sudp-protocol/authorizer for that side.
 // 4) The Grant the Authorizer produces flows back to T; R sees only the
 //    final response ρ.
 
@@ -65,7 +65,7 @@ const result = await resp.json();
 For an Export operation (recipient is required by the protocol):
 
 ```ts
-import { exportOp } from "@sudp/requester";
+import { exportOp } from "@sudp-protocol/requester";
 
 const op = exportOp({
   target: "env.api_key",
@@ -80,7 +80,7 @@ const op = exportOp({
 For a custom (profile-defined) act type:
 
 ```ts
-import { customOp } from "@sudp/requester";
+import { customOp } from "@sudp-protocol/requester";
 
 const op = customOp("co-sign", {
   target: "wallet.eth_main",
@@ -100,7 +100,7 @@ relative to the Authorizer and Custodian:
 
 ## Status
 
-Pre-1.0, alongside [`@sudp/authorizer`](../../authorizer/ts/) and the
+Pre-1.0, alongside [`@sudp-protocol/authorizer`](../../authorizer/ts/) and the
 [Rust custodian crate](../../custodian/rust/). Wire-shape changes will
 ripple to all three.
 

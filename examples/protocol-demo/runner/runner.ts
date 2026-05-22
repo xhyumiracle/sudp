@@ -19,8 +19,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { computeBinding, DS_BIND } from "@sudp/authorizer";
-import { useOp, type Operation } from "@sudp/requester";
+import { computeBinding, DS_BIND } from "@sudp-protocol/authorizer";
+import { useOp, type Operation } from "@sudp-protocol/requester";
 
 // ─── Mock authenticator (matches the Rust binary's MockAuthenticator) ───
 //
@@ -145,7 +145,7 @@ async function runDemo(): Promise<void> {
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 600,
   });
-  console.log(`${R} ${dim}Built Operation via @sudp/requester.useOp(...)${reset}`);
+  console.log(`${R} ${dim}Built Operation via @sudp-protocol/requester.useOp(...)${reset}`);
   console.log(`${R}     ${blue}o.act${reset}    = ${JSON.stringify(op.act)}`);
   console.log(`${R}     ${blue}o.bind${reset}   = ${JSON.stringify(op.bind)}`);
   console.log(`${R}     ${blue}o.valid${reset}  = ${JSON.stringify(op.valid)}`);

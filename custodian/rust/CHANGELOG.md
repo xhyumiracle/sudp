@@ -15,11 +15,11 @@ trait shapes may still move before 1.0.
   AEAD-as-wrap AAD layout, so deployments converge on the same shape on
   both ends. SUDP itself does not derive `W_c` (it arrives in the grant);
   this helper is for the Authorizer realisation that needs to produce it.
-  `@sudp/authorizer`'s TypeScript `deriveWrappingKey` is byte-aligned with
+  `@sudp-protocol/authorizer`'s TypeScript `deriveWrappingKey` is byte-aligned with
   this function and verified by a shared conformance vector.
 - AEAD-as-wrap raw-encrypt cross-language conformance vector pinning
   `ChaCha20Poly1305::encrypt(key, nonce, plaintext, ad)` against
-  `@sudp/authorizer`'s `aeadEncrypt`.
+  `@sudp-protocol/authorizer`'s `aeadEncrypt`.
 - `Multiplicity` enum on `Valid` (`One` / `Unbounded`, default `One`).
   The abstract protocol enforces a multiplicity bound declared in
   `o.valid`; v0.1 implements only single-use (`One`). `Unbounded` is

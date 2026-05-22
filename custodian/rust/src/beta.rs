@@ -114,7 +114,7 @@ mod tests {
     }
 
     /// Cross-language conformance anchor. The same Operation and `r`
-    /// fed into `@sudp/authorizer`'s `computeBinding(DS_BIND, r, op)`
+    /// fed into `@sudp-protocol/authorizer`'s `computeBinding(DS_BIND, r, op)`
     /// MUST produce the same 32-byte β. If you regenerate this hex,
     /// also update the matching inline snapshot in
     /// `authorizer/ts/test/conformance.test.ts` in the same commit so

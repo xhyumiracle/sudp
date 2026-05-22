@@ -41,12 +41,12 @@ sudp/
 | Package | Role | Status |
 |---------|------|--------|
 | [`custodian/rust`](custodian/rust/) | Custodian Rust crate (publishes as `sudp`) | pre-1.0, working |
-| [`authorizer/ts`](authorizer/ts/) | Authorizer TS SDK (publishes as `@sudp/authorizer`) | pre-1.0, cross-language β conformance locked |
-| [`requester/ts`](requester/ts/) | Requester TS types + builders (publishes as `@sudp/requester`) | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
+| [`authorizer/ts`](authorizer/ts/) | Authorizer TS SDK (publishes as `@sudp-protocol/authorizer`) | pre-1.0, cross-language β conformance locked |
+| [`requester/ts`](requester/ts/) | Requester TS types + builders (publishes as `@sudp-protocol/requester`) | pre-1.0, wire-shape only — no crypto, no HTTP, no framework |
 
 ### Building an agent against SUDP
 
-Agent authors typically need only [`@sudp/requester`](requester/ts/):
+Agent authors typically need only [`@sudp-protocol/requester`](requester/ts/):
 it gives you typed `Operation` builders (`useOp`, `exportOp`, etc.) and
 shape validators, but **no transport** — wire it up to whatever HTTP
 client your stack uses to reach the Custodian. SUDP intentionally does

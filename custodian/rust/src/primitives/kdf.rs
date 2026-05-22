@@ -48,7 +48,7 @@ impl Kdf for HkdfSha256 {
 /// pairs naturally with this info shape (the same label structure as
 /// [`crate::primitives::WrapBinding::to_canonical_ad`]), so deployments that
 /// don't have a strong opinion converge on it. The Authorizer-side
-/// realisation in `@sudp/authorizer` produces byte-identical output.
+/// realisation in `@sudp-protocol/authorizer` produces byte-identical output.
 pub fn derive_wrapping_key<K: Kdf>(
     user_key: &[u8],
     prf_salt: &[u8],
@@ -68,7 +68,7 @@ mod tests {
     use super::*;
 
     /// Cross-language conformance anchor. The same inputs fed into
-    /// `@sudp/authorizer`'s `deriveWrappingKey` MUST produce the same 32
+    /// `@sudp-protocol/authorizer`'s `deriveWrappingKey` MUST produce the same 32
     /// bytes. If you regenerate this hex, also update the matching inline
     /// snapshot in `authorizer/ts/test/conformance.test.ts` in the same
     /// commit so the two sides stay locked.
@@ -87,7 +87,7 @@ mod tests {
 
     /// AEAD-as-wrap byte-for-byte fixture: given a fixed key, nonce,
     /// plaintext, and AAD shape, sealing must produce the exact bytes
-    /// `@sudp/authorizer`'s `aeadEncrypt` produces for the same inputs.
+    /// `@sudp-protocol/authorizer`'s `aeadEncrypt` produces for the same inputs.
     #[test]
     fn aead_matches_ts_authorizer_conformance_vector() {
         use crate::primitives::{aead::Aead, ChaCha20Poly1305};

@@ -29,7 +29,7 @@ operations `A` has authorized. Reusable authority does not cross `R`'s boundary.
 
 Pre-1.0. MSRV 1.85 (driven by transitive `base64ct` 1.8+ which requires edition 2024). Wire format and trait shapes may move before the 1.0 cut.
 
-- 21 unit + 22 end-to-end tests pass (incl. HPKE export, cross-device envelope, custom act-type extension, lifecycle rotate/enroll/revoke, strict-recipient export, cross-language conformance with `@sudp/authorizer` on β, `derive_wrapping_key`, and AEAD-as-wrap encrypt).
+- 21 unit + 22 end-to-end tests pass (incl. HPKE export, cross-device envelope, custom act-type extension, lifecycle rotate/enroll/revoke, strict-recipient export, cross-language conformance with `@sudp-protocol/authorizer` on β, `derive_wrapping_key`, and AEAD-as-wrap encrypt).
 - `cargo clippy --all-targets` is clean.
 - `cargo check --no-default-features` builds.
 

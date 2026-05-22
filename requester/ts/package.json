@@ -1,5 +1,5 @@
 {
-  "name": "@sudp/requester",
+  "name": "@sudp-protocol/requester",
   "version": "0.1.0",
   "description": "Requester-side SUDP types and operation builders. Wire-shape only — no crypto, no HTTP, no framework adapters.",
   "license": "Apache-2.0",

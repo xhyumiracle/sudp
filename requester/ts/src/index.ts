@@ -1,9 +1,9 @@
 /**
- * `@sudp/requester` — wire-shape types and operation builders for the
+ * `@sudp-protocol/requester` — wire-shape types and operation builders for the
  * SUDP Requester role.
  *
  * Intentionally thin: no crypto (the Authorizer signs β; see
- * `@sudp/authorizer`), no HTTP (transport is a deployment concern), no
+ * `@sudp-protocol/authorizer`), no HTTP (transport is a deployment concern), no
  * framework adapters (each agent framework wires SUDP its own way).
  *
  * See `README.md` for the no-scope-creep contract.

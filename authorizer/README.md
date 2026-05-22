@@ -5,7 +5,7 @@ signature `σ` over `β = H(DS_BIND ‖ r ‖ H(o))`.
 
 ## Packages
 
-- **[`ts/`](ts/)** — TypeScript SDK for browser-based Authorizers (`@sudp/authorizer`).
+- **[`ts/`](ts/)** — TypeScript SDK for browser-based Authorizers (`@sudp-protocol/authorizer`).
   Carrier-agnostic protocol primitives (canonical JSON, β computation,
   wrapping-key derivation, AEAD-as-wrap) plus an optional `./webauthn`
   subpath for the WebAuthn / PRF adapter. Cross-language β conformance

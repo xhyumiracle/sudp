@@ -134,7 +134,7 @@ describe("protocol flow (Authorizer side)", () => {
     // `assertion` is authenticator-specific (a WebAuthn `PublicKeyCredential`
     // assertion bundle, an HSM signature blob, etc.). This package does NOT
     // produce `assertion` — that's the Authenticator's job (see the
-    // `@sudp/authorizer/webauthn` subpath for the WebAuthn adapter that
+    // `@sudp-protocol/authorizer/webauthn` subpath for the WebAuthn adapter that
     // extracts assertion bytes after `navigator.credentials.get`).
 
     const wc = await deriveWrappingKey(userKey, prfSalt, credentialId, WRAP_VERSION);

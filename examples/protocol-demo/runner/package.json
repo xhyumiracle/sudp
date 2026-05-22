@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sudp/authorizer": "file:../../../authorizer/ts",
-    "@sudp/requester": "file:../../../requester/ts"
+    "@sudp-protocol/authorizer": "file:../../../authorizer/ts",
+    "@sudp-protocol/requester": "file:../../../requester/ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

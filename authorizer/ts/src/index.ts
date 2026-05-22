@@ -1,5 +1,5 @@
 /**
- * `@sudp/authorizer` — Authorizer-side primitives for the
+ * `@sudp-protocol/authorizer` — Authorizer-side primitives for the
  * Secret-Use Delegation Protocol.
  *
  * This entry point is **carrier-agnostic**: it carries only the protocol
@@ -8,7 +8,7 @@
  * passkeys, HTTP, or any specific authenticator.
  *
  * For the WebAuthn PRF → y_c adapter and assertion helpers, import from
- * `@sudp/authorizer/webauthn`.
+ * `@sudp-protocol/authorizer/webauthn`.
  */
 
 export {

@@ -1,4 +1,4 @@
-# @sudp/authorizer
+# @sudp-protocol/authorizer
 
 > Authorizer-side primitives for **SUDP** — the Secret-Use Delegation Protocol.
 
@@ -15,13 +15,13 @@ shapes, and the wrap-key derivation.
 ## Layout
 
 ```
-@sudp/authorizer            ← carrier-agnostic protocol primitives
+@sudp-protocol/authorizer            ← carrier-agnostic protocol primitives
   canonicalize, sha256, computeBinding,
   deriveWrappingKey, wrapBindingAd, sealAd,
   aeadSeal, aeadOpen, base64url helpers,
   DS_BIND / DS_WRAP / DS_SEAL constants
 
-@sudp/authorizer/webauthn   ← WebAuthn-specific adapter
+@sudp-protocol/authorizer/webauthn   ← WebAuthn-specific adapter
   prfToUserKey(prfOutput) → 32-byte y_c
   assertionToWire(assertion) → wire-shape assertion
 ```
@@ -39,8 +39,8 @@ import {
   deriveWrappingKey,
   wrapBindingAd,
   aeadSeal,
-} from "@sudp/authorizer";
-import { prfToUserKey, assertionToWire } from "@sudp/authorizer/webauthn";
+} from "@sudp-protocol/authorizer";
+import { prfToUserKey, assertionToWire } from "@sudp-protocol/authorizer/webauthn";
 
 // 1) Authorizer-side: compute the binding hash β.
 const beta = await computeBinding(DS_BIND, rFreshness, operation);
