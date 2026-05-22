@@ -1,18 +1,18 @@
-//! Authenticator interface — the U-side tamper-resistant module
-//!.
+//! Authenticator interface — the Authorizer-side tamper-resistant module
+//! and its custodian-side verifier.
 //!
 //! ## What this trait models, and what it does NOT
 //!
-//!  models each user-side credential `c` as a module `Aut_c` with
+//! Models each Authorizer-side credential `c` as a module `Aut_c` with
 //! non-extractable internal keys producing
 //! - one signature `σ ← Sig_{sk_c}(μ)` per user-verified invocation,
 //! - and one or more PRF outputs `y_i ← PRF_c(η_i)`.
 //!
-//! Two of those three artefacts are produced **inside `Aut_c`** at the user's
+//! Two of those three artefacts are produced **inside `Aut_c`** at the Authorizer's
 //! device:
 //!
 //! - `sk_c` and the PRF key never leave the module.
-//! - `y_c` and the derived wrapping key `W_c` exist transiently in the user's
+//! - `y_c` and the derived wrapping key `W_c` exist transiently in the Authorizer's
 //!   trusted client and reach `T` only as the wrapping-key field of a grant.
 //!
 //! The custodian `T` — which is what `sudp` mostly implements — therefore only
@@ -22,7 +22,7 @@
 //!
 //! ### Where does PRF / wrapping-key derivation live, then?
 //!
-//! It lives at `U` (the user's client). The client does the PRF evaluation
+//! It lives at `A` (the Authorizer's client). The client does the PRF evaluation
 //! inside the authenticator, derives `W_c` via HKDF in JavaScript / native
 //! code, and sends `W_c` to `T` over the confidential leg as part of the
 //! [`Grant`](crate::Grant). The crate provides helpers for the symmetric KDF
@@ -50,7 +50,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::Result;
 
-/// `Aut_c`: user-side tamper-resistant module + its custodian-side verifier.
+/// `Aut_c`: Authorizer-side tamper-resistant module + its custodian-side verifier.
 ///
 /// All types are associated so that an authenticator backend chooses its own
 /// wire formats. Wire-format choices that vary between deployments

@@ -52,7 +52,7 @@ pub enum Error {
     /// Attempted to revoke the credential that signed the very same grant.
     /// Paper-level fail-safe: the acting
     /// credential cannot be the target of its own revocation invocation;
-    /// the user must authorize the revocation with a different credential.
+    /// the Authorizer must authorize the revocation with a different credential.
     #[error("acting credential cannot revoke itself")]
     CannotRevokeSelf,
 

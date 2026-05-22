@@ -1,4 +1,4 @@
-//! `Operation` — the canonical U↔T contract.
+//! `Operation` — the canonical A↔T contract.
 //!
 //! An authorized operation is the tuple `o = (act, bind, valid)`:
 //!
@@ -100,7 +100,7 @@ pub struct RecipientPk {
 
 /// Operation multiplicity bound.
 ///
-/// The abstract protocol enforces the multiplicity bound `U` declares in
+/// The abstract protocol enforces the multiplicity bound `A` declares in
 /// `o.valid`. The canonical values are `One` (single-use) and `Unbounded`
 /// (multi-use session).
 ///
@@ -194,7 +194,7 @@ impl Operation {
 
     /// Convenience: render as canonical bytes.
     ///
-    /// Both `U` and `T` must agree on these bytes. Built on the JCS-style
+    /// Both `A` and `T` must agree on these bytes. Built on the JCS-style
     /// encoder in [`crate::canonical`], in **strict** mode — float values
     /// anywhere inside `act.scope` are rejected with
     /// [`Error::CanonicalFloatRejected`](crate::Error::CanonicalFloatRejected).

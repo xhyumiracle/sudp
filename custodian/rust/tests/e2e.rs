@@ -918,7 +918,7 @@ mod export_hpke_test {
 
 #[test]
 fn xdevice_envelope_round_trips_grant() {
-    // Simulate U and T not sharing TLS. Caller does ECDH with p256::ecdh,
+    // Simulate A and T not sharing TLS. Caller does ECDH with p256::ecdh,
     // passes the shared secret + r + both pk bytes to sudp::xdevice, gets a
     // sealed grant blob, T opens it.
     use p256::ecdh::EphemeralSecret;
@@ -926,21 +926,21 @@ fn xdevice_envelope_round_trips_grant() {
     use rand::rngs::OsRng;
     use sudp::xdevice;
 
-    // Generate ephemeral key pairs for U and T (assumes pk_T
+    // Generate ephemeral key pairs for A and T (assumes pk_T
     // arrives authenticated by some out-of-band channel — we skip that part
     // and just verify the envelope crypto).
     let sk_u = EphemeralSecret::random(&mut OsRng);
-    let pk_u = sk_u.public_key();
+    let pk_a = sk_u.public_key();
     let sk_t = EphemeralSecret::random(&mut OsRng);
     let pk_t = sk_t.public_key();
-    let pk_u_bytes = pk_u.to_sec1_bytes().to_vec();
+    let pk_a_bytes = pk_a.to_sec1_bytes().to_vec();
     let pk_t_bytes = pk_t.to_sec1_bytes().to_vec();
 
     // Both sides derive the same ss via ECDH.
     let pk_t_for_u = PublicKey::from_sec1_bytes(&pk_t_bytes).unwrap();
     let ss_u = sk_u.diffie_hellman(&pk_t_for_u);
-    let pk_u_for_t = PublicKey::from_sec1_bytes(&pk_u_bytes).unwrap();
-    let ss_t = sk_t.diffie_hellman(&pk_u_for_t);
+    let pk_a_for_t = PublicKey::from_sec1_bytes(&pk_a_bytes).unwrap();
+    let ss_t = sk_t.diffie_hellman(&pk_a_for_t);
     assert_eq!(ss_u.raw_secret_bytes(), ss_t.raw_secret_bytes());
 
     // Build a setup-side custodian and a real grant to seal.
@@ -979,18 +979,18 @@ fn xdevice_envelope_round_trips_grant() {
         opt: GrantOpt::default(),
     };
 
-    // U-side: derive k_xd, seal grant.
+    // Authorizer side: derive k_xd, seal grant.
     let k_xd_u = xdevice::derive_session_key::<StdPrimitives>(
         ss_u.raw_secret_bytes().as_slice(),
         &r,
-        &pk_u_bytes,
+        &pk_a_bytes,
         &pk_t_bytes,
     )
     .unwrap();
     let ct_g = xdevice::seal_grant::<StdPrimitives, MockAuthenticator>(
         &grant,
         &k_xd_u,
-        &pk_u_bytes,
+        &pk_a_bytes,
         &pk_t_bytes,
         &r,
     )
@@ -1000,7 +1000,7 @@ fn xdevice_envelope_round_trips_grant() {
     let k_xd_t = xdevice::derive_session_key::<StdPrimitives>(
         ss_t.raw_secret_bytes().as_slice(),
         &r,
-        &pk_u_bytes,
+        &pk_a_bytes,
         &pk_t_bytes,
     )
     .unwrap();
@@ -1010,7 +1010,7 @@ fn xdevice_envelope_round_trips_grant() {
         xdevice::open_grant::<StdPrimitives, MockAuthenticator>(
             &ct_g,
             &k_xd_t,
-            &pk_u_bytes,
+            &pk_a_bytes,
             &pk_t_bytes,
             &r,
         )
@@ -1028,16 +1028,16 @@ fn xdevice_envelope_round_trips_grant() {
 
 #[test]
 fn xdevice_envelope_rejects_tampered_pk() {
-    // An MITM that substitutes pk_U or pk_T must break AEAD authentication.
+    // An MITM that substitutes pk_A or pk_T must break AEAD authentication.
     use sudp::xdevice;
 
     let ss = vec![0x55u8; 32]; // pretend ECDH output
     let r = vec![0x66u8; 32];
-    let pk_u_a = b"pk-U-original".to_vec();
+    let pk_a_orig = b"pk-A-original".to_vec();
     let pk_t_a = b"pk-T-original".to_vec();
-    let pk_u_b = b"pk-U-tampered".to_vec();
+    let pk_a_tamp = b"pk-A-tampered".to_vec();
 
-    let k_xd = xdevice::derive_session_key::<StdPrimitives>(&ss, &r, &pk_u_a, &pk_t_a).unwrap();
+    let k_xd = xdevice::derive_session_key::<StdPrimitives>(&ss, &r, &pk_a_orig, &pk_t_a).unwrap();
 
     // Build any small grant for the sealing — content doesn't matter.
     let grant = Grant::<MockAuthenticator> {
@@ -1049,13 +1049,13 @@ fn xdevice_envelope_rejects_tampered_pk() {
         opt: GrantOpt::default(),
     };
     let sealed = xdevice::seal_grant::<StdPrimitives, MockAuthenticator>(
-        &grant, &k_xd, &pk_u_a, &pk_t_a, &r,
+        &grant, &k_xd, &pk_a_orig, &pk_t_a, &r,
     )
     .unwrap();
 
-    // Open with tampered pk_U — AD changes → AEAD auth fails.
+    // Open with tampered pk_A — AD changes → AEAD auth fails.
     let res = xdevice::open_grant::<StdPrimitives, MockAuthenticator>(
-        &sealed, &k_xd, &pk_u_b, &pk_t_a, &r,
+        &sealed, &k_xd, &pk_a_tamp, &pk_t_a, &r,
     );
     assert!(res.is_err());
 }
@@ -1228,7 +1228,7 @@ fn revoke_rejects_when_it_would_orphan_state() {
     // the orphan path either.
     //
     // The real orphan path: revoked == only cred AND acting == revoked ==
-    // only cred AND user somehow bypasses self-revoke. Not reachable from
+    // only cred AND caller somehow bypasses self-revoke. Not reachable from
     // outside since self-revoke check is structurally prior. So orphan is a
     // belt-and-suspenders guard for impossible states.
     //

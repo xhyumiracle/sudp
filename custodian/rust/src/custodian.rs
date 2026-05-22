@@ -28,11 +28,11 @@ use crate::Result;
 
 use serde::{Deserialize, Serialize};
 
-/// Phase II.1 conveyance payload `T → U`.
+/// Phase II.1 conveyance payload `T → A`.
 ///
-/// Carries `(o, r, {(cid_c, η_c)})`. `o` is the operation `U` will render
+/// Carries `(o, r, {(cid_c, η_c)})`. `o` is the operation `A` will render
 /// and sign; `r` is the single-use freshness token; the credential list is
-/// the public material `U` needs to drive the authenticator (allowList +
+/// the public material `A` needs to drive the authenticator (allowList +
 /// per-credential salt).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConveyancePayload {
@@ -148,9 +148,9 @@ where
 
     /// Phase II.1 — one-shot conveyance helper.
     ///
-    /// Issues a fresh `r` and returns the full payload `T → U`:
+    /// Issues a fresh `r` and returns the full payload `T → A`:
     /// `(o, r, {(cid_c, η_c)})`. The caller forwards this
-    /// payload to `U` over the authenticated channel; `U` uses the
+    /// payload to `A` over the authenticated channel; `A` uses the
     /// `credentials` list to drive an authenticator allowList and renders
     /// `o` before signing β.
     ///
@@ -311,7 +311,7 @@ where
     ///
     /// 1. **No self-revocation** ([`Error::CannotRevokeSelf`](crate::Error::CannotRevokeSelf)).
     ///    The acting credential (the one whose σ* signed `o`) cannot be the
-    ///    target of its own revocation invocation — the user must authorize
+    ///    target of its own revocation invocation — the Authorizer must authorize
     ///    a revoke with a *different* enrolled credential. This mirrors the
     ///    WebAuthn allowList pattern: the acting credential must not be in
     ///    the set of credentials being removed.

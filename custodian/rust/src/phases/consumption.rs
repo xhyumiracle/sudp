@@ -245,12 +245,12 @@ pub struct LifecycleOutput {
 ///
 /// ## `next_prf_salt` binding contract
 ///
-/// The `next_prf_salt` parameter MUST equal the `η^next_{c*}` value the user
+/// The `next_prf_salt` parameter MUST equal the `η^next_{c*}` value the Authorizer
 /// placed inside `o.act.scope` at Phase II.2. The crate does
 /// **not** introspect `scope` to enforce this — `scope` is profile-shaped
 /// JSON opaque to sudp. If the caller passes a `next_prf_salt` that diverges
 /// from what's in `scope`, the rotation succeeds locally but the next
-/// authenticator invocation at `U` will derive a `W*` that the persisted
+/// authenticator invocation at `A` will derive a `W*` that the persisted
 /// `K̂_{c*}` cannot unwrap, locking out further grants from this credential.
 ///
 /// **The deployment is responsible** for keeping `next_prf_salt` and the

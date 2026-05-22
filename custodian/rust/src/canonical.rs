@@ -1,6 +1,6 @@
 //! Deterministic canonical encoding for the operation hash.
 //!
-//! Both `U` and `T` must agree byte-for-byte on `canonical(o)` so that
+//! Both `A` and `T` must agree byte-for-byte on `canonical(o)` so that
 //! `H(canonical(o))` recomputes identically at redemption time.
 //!
 //! This module implements an RFC 8785-style JSON Canonicalisation Scheme (JCS)

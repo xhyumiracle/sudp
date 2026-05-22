@@ -1,6 +1,6 @@
 //! `Grant` and `RedeemedGrant`.
 //!
-//! The grant is the protocol artefact representing user authorization of `o`:
+//! The grant is the protocol artefact representing Authorizer authorization of `o`:
 //!
 //! ```text
 //!     G := (o, r, cid_{c*}, W*, σ*, opt)
@@ -21,7 +21,7 @@ use crate::primitives::Authenticator;
 
 /// Wrapping key `W*` carried in a grant.
 ///
-/// **Confidential leg.** `U` must transmit this to `T` over a channel that
+/// **Confidential leg.** `A` must transmit this to `T` over a channel that
 /// guarantees confidentiality. Any party observing `W*` can
 /// unwrap `K̂_{c*}` from sealed state and decrypt `M`.
 ///
@@ -61,7 +61,7 @@ pub struct GrantOpt {
     pub wrapping_key_next: Option<WrappingKey>,
 }
 
-/// One-shot authorization artefact transmitted from `U` to `T`.
+/// One-shot authorization artefact transmitted from `A` to `T`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Grant<A: Authenticator> {
     /// Operation contract.
@@ -72,7 +72,7 @@ pub struct Grant<A: Authenticator> {
     /// Acting credential id `cid_{c*}` (raw bytes).
     #[serde(with = "serde_bytes")]
     pub credential_id: Vec<u8>,
-    /// Wrapping key `W*` carried over the confidential `U→T` leg.
+    /// Wrapping key `W*` carried over the confidential `A→T` leg.
     pub wrapping_key: WrappingKey,
     /// Authorization evidence `σ*` (assertion bundle, encoded per
     /// `A::Assertion`).

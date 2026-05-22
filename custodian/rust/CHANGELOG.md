@@ -39,6 +39,13 @@ trait shapes may still move before 1.0.
 - `phases::grant::validate_op_against` now enforces `Export →
   bind.recipient = Some(pk)` (paired with the removal above) and
   rejects `multiplicity = Unbounded`.
+- Terminology: party formerly called "User" (symbol `U`) is now
+  consistently the **Authorizer** (symbol `A`) across crate-internal
+  docs and identifiers. The on-the-wire grant shape is unchanged; this
+  is purely a naming alignment with the protocol literature, where
+  "User" was overloaded with the product-level end-user concept.
+  WebAuthn-specific terms (`User Verification`, `User Present`) keep
+  their FIDO-canonical spelling.
 
 ## [0.1.0] — 2026-05-21
 
@@ -101,7 +108,7 @@ Initial release.
 - WebAuthn assertion verification uses constant-time comparison for
   `origin`, `challenge` (= β), and `rpIdHash`. ECDSA-P256 verify runs
   through the `p256` crate (constant-time).
-- Cross-device envelope AEAD AD = `H(pk_U ‖ pk_T ‖ r)`; substitution of
+- Cross-device envelope AEAD AD = `H(pk_A ‖ pk_T ‖ r)`; substitution of
   either ephemeral public key fails authentication.
 
 [Unreleased]: https://github.com/xhyumiracle/sudp/compare/v0.1.0...HEAD

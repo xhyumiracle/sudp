@@ -8,7 +8,7 @@
 //! ```
 //!
 //! Walks through Phase I (setup) → Phase II.1 (issue freshness) → Phase II.2
-//! (sign β at "U") → Phase II.3 (redeem at "T") → Phase III.1 (use the
+//! (sign β at "A") → Phase II.3 (redeem at "T") → Phase III.1 (use the
 //! secret inside T's boundary).
 //!
 //! The mock authenticator is **not cryptographic** — it hashes (secret, β)
@@ -134,7 +134,7 @@ fn main() -> Result<()> {
     let r = custodian.issue_freshness();
     println!("  r = {} bytes (single-use)", r.len());
 
-    println!("\n== Phase II.2 — User authorizes at U ==");
+    println!("\n== Phase II.2 — Authorizer authorizes at A ==");
     let o = Operation {
         act: Act {
             kind: ActType::Use,

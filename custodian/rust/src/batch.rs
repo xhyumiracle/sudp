@@ -8,7 +8,7 @@
 //! ```
 //!
 //! A single signature `σ` commits to the batch. `T` validates each `o_i`
-//! under the II.3 obligations; the trusted-rendering obligation at `U`
+//! under the II.3 obligations; the trusted-rendering obligation at `A`
 //! extends to `Render(ops)`.
 //!
 //! Construction-wise this is identical to a single-op grant except that the

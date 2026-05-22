@@ -7,7 +7,7 @@
 //!
 //! - [`primitives`] — abstract crypto traits (`Hash`, `Kdf`, `Aead`, `KeyWrap`,
 //!   `Kem`, `Csprng`, `Authenticator`) and standard realisations.
-//! - [`operation`], [`grant`] — the U↔T contract (canonical `Operation`) and the
+//! - [`operation`], [`grant`] — the A↔T contract (canonical `Operation`) and the
 //!   one-shot authorization artifact (`Grant`, `RedeemedGrant`).
 //! - [`state`] — sealed and protected state structures (`SealedState`,
 //!   `ProtectedState`, the peer map).

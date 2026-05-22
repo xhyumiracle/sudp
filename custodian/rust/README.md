@@ -2,13 +2,13 @@
 
 > **Secret-Use Delegation Protocol** — protocol-level secret use for agentic systems, in Rust.
 
-`sudp` lets an autonomous requester *propose* a secret-backed operation, a user *authorize*
+`sudp` lets an autonomous requester *propose* a secret-backed operation, an Authorizer *authorize*
 exactly that operation, and a custodian *perform* it — without the requester ever seeing
 reusable authority over the secret. The unit of delegation is one **use**, not the secret.
 
 ```text
                   ┌─────────────────────────┐
-                  │   Authorizer  U         │
+                  │   Authorizer  A         │
                   │   (passkey on a device) │
                   └────────────┬────────────┘
                                │  signs β over (DS ‖ r ‖ H(o))
@@ -21,7 +21,7 @@ reusable authority over the secret. The unit of delegation is one **use**, not t
 ```
 
 `R` (the agent / LLM tool runtime) never receives the secret `s`. `T` only spends `s` on
-operations `U` has authorized. Reusable authority does not cross `R`'s boundary.
+operations `A` has authorized. Reusable authority does not cross `R`'s boundary.
 
 ---
 
@@ -39,7 +39,7 @@ Pre-1.0. MSRV 1.85 (driven by transitive `base64ct` 1.8+ which requires edition 
 cargo run --example end_to_end
 ```
 
-Walks through Phase I (setup) → Phase II (issue freshness `r`, sign β at `U`, redeem at
+Walks through Phase I (setup) → Phase II (issue freshness `r`, sign β at `A`, redeem at
 `T`) → Phase III (`use` inside `T`'s boundary), with a mock authenticator so you don't
 need a real passkey to see the shape.
 
@@ -56,11 +56,11 @@ let sealed = custodian.setup(
     protected_state,           // ProtectedState (M₀)
     enrollment,                // WebAuthnEnrollment
     prf_salt,                  // η_c, 32 bytes
-    wrapping_key,              // W_c, derived at U from the PRF extension
+    wrapping_key,              // W_c, derived at A from the PRF extension
     &auth_context,             // AuthenticatorContext { rp_id, origin, require_uv }
 )?;
 
-// Phase II.1 — issue a fresh r token. U signs β = H(DS_bind ‖ r ‖ H(o)).
+// Phase II.1 — issue a fresh r token. A signs β = H(DS_bind ‖ r ‖ H(o)).
 let r = custodian.issue_freshness();
 // ... client computes β, gets σ from the authenticator, sends Grant ...
 
@@ -82,11 +82,11 @@ lockout, revocation).
 
 ## Concepts
 
-- **Operation** `o = (act, bind, valid)` — the canonical U↔T contract. `act` carries the
+- **Operation** `o = (act, bind, valid)` — the canonical A↔T contract. `act` carries the
   semantic class (`use`, `export`, `write`, `rotate`, `enroll`, `revoke`, or profile-defined
   `Custom`), the `target`, and adapter-canonicalized scope.
 - **Grant** `G = (o, r, cid, W*, σ*, opt)` — the one-shot authorization artifact. `σ*`
-  binds `β = H(DS_bind ‖ r ‖ H(o))`; `W*` arrives over the confidential `U → T` leg.
+  binds `β = H(DS_bind ‖ r ‖ H(o))`; `W*` arrives over the confidential `A → T` leg.
 - **Sealed state** `Σ = (C, {(cid, η, K̂)}, Reg, ver)` — what `T` persists. `Σ` alone is
   insufficient to recover `M`; an authenticator invocation is required.
 - **Custodian** — façade over the three phases: `setup`, `issue_freshness`,
@@ -102,13 +102,13 @@ lockout, revocation).
 | **Conveyance payload** `(o, r, {(cid_c, η_c)})` | `Custodian::build_conveyance` | ✓ |
 | **Recipient-protected export** — standard `Kem + Kdf + Aead` composition | `sudp::phases::consumption::{seal_export, open_export}` | ✓ (closure-based) |
 | **HPKE-DHKEM backend** — `DhKemP256HkdfSha256` realising `Kem` | `sudp::primitives::HpkeDhKem` | feature `hpke` |
-| **Cross-device envelope** — `k_xd = KDF(ss; r, DS_xd_enc ‖ pk_U ‖ pk_T)` + AEAD with `AD = H(pk_U ‖ pk_T ‖ r)` | `sudp::xdevice` | ✓ |
+| **Cross-device envelope** — `k_xd = KDF(ss; r, DS_xd_enc ‖ pk_A ‖ pk_T)` + AEAD with `AD = H(pk_A ‖ pk_T ‖ r)` | `sudp::xdevice` | ✓ |
 | **Custom act types** — `ActType::Custom(String)`; β/σ verification stays generic, deployment dispatches | `sudp::ActType::Custom` | ✓ |
 
 ### What the cross-device module gives you
 
 The crate ships the **symmetric envelope** primitives — KDF stitching plus an AEAD
-sealing layer with channel-binding AD over `(pk_U, pk_T, r)`. It does *not* ship the
+sealing layer with channel-binding AD over `(pk_A, pk_T, r)`. It does *not* ship the
 ECDH key-agreement primitive (caller picks `p256::ecdh`, `x25519-dalek`, an HSM, etc.
 and passes the shared secret `ss` in) nor the `pk_T` trust establishment (signature
 under a long-term key, OOB QR, PAKE — all profile choices). See
@@ -167,14 +167,14 @@ hardcoded.
 
 ### Authenticator is a separate axis
 
-[`Authenticator`](src/primitives/auth.rs) is the *user-side tamper-resistant module* and
+[`Authenticator`](src/primitives/auth.rs) is the *Authorizer-side tamper-resistant module* and
 its verifier. It is **not** inside `PrimitiveSuite` because it carries four associated
 types (`Enrollment`, `Assertion`, `PublicKey`, `Context`) and is swapped much more often
 than crypto primitives — for tests, for HSMs that aren't WebAuthn, for OS-credential
 mediators.
 
 ```rust
-//                   ▼ crypto bundle    ▼ user-side authenticator
+//                   ▼ crypto bundle    ▼ Authorizer-side authenticator
 let custodian: Custodian<StdPrimitives, WebAuthn>     = Custodian::new("...");
 let custodian: Custodian<StdPrimitives, MockForTests> = Custodian::new("...");
 let custodian: Custodian<StdPrimitives, HsmBackend>   = Custodian::new("...");
@@ -221,7 +221,7 @@ sudp = { version = "0.1", default-features = false }
 - HTTP / transport (TLS 1.3, cross-device handshake — these belong in the deployment).
 - Tool-call → `Operation` compilation (the adapter step is per-tool and lives outside the
   protocol core).
-- Trusted rendering at `U` (the crate emits canonical bytes; UI rendering is the
+- Trusted rendering at `A` (the crate emits canonical bytes; UI rendering is the
   deployment's job).
 - Persistence of `SealedState` (atomicity is a deployment invariant).
 - Rotation of the authority-bearing secret at `E` (deployment policy parameter).
@@ -233,8 +233,8 @@ rewriting, runtime shim), it cannot read the secret `s`, cannot derive any reusa
 artifact from `s`, cannot replay an old grant (single-use `r` consumed at redemption),
 and cannot substitute an operation past authorization (any tampering with `o` changes `β`
 and fails signature verification). It can at most propose adversarial operations to `T`
-and ask `U` to approve them. `sudp` does *not* protect against `U` approving a
-dangerous-but-correctly-rendered operation, trusted-rendering failures inside `U`'s
+and ask `A` to approve them. `sudp` does *not* protect against `A` approving a
+dangerous-but-correctly-rendered operation, trusted-rendering failures inside `A`'s
 client, or runtime compromise of `T` itself.
 
 ---

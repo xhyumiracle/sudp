@@ -3,7 +3,7 @@
 //! Builds the initial sealed state `Σ_0 := (C, {(cid_c, η_c, K̂_c)}, Reg, ver)`
 //! from one enrolled credential and an initial protected state `M_0`.
 //!
-//! The user-side derivation of `W_c` happens on the client;
+//! The Authorizer-side derivation of `W_c` happens on the client;
 //! the custodian receives `W_c` over the confidential leg and never sees
 //! `y_c` or the PRF key. This function therefore takes `W_c` as an input.
 
@@ -20,9 +20,9 @@ pub struct SetupInputs<A: Authenticator> {
     pub protected: ProtectedState,
     /// Enrollment artefact for the first credential.
     pub enrollment: A::Enrollment,
-    /// PRF salt `η_c` chosen at the user side during Phase I.2.
+    /// PRF salt `η_c` chosen at the Authorizer side during Phase I.2.
     pub prf_salt: Vec<u8>,
-    /// Wrapping key `W_c` derived at the user side and sent over the confidential
+    /// Wrapping key `W_c` derived at the Authorizer side and sent over the confidential
     /// leg. Zeroized after use.
     pub wrapping_key: WrappingKey,
 }
