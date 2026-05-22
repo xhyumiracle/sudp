@@ -7,17 +7,16 @@
 [![npm @sudp-protocol/requester](https://img.shields.io/npm/v/%40sudp-protocol%2Frequester.svg?label=%40sudp-protocol%2Frequester)](https://www.npmjs.com/package/@sudp-protocol/requester)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-This repository is the **reference implementation** of the SUDP protocol
-defined in:
+Reference implementation of the SUDP protocol defined in:
 
 > Xiaohang Yu, Hejia Geng, Xinmeng Zeng, William Knottenbelt.
 > *SUDP: Secret-Use Delegation Protocol for Agentic Systems.*
 > [`arXiv:2604.24920`](https://arxiv.org/abs/2604.24920), 2026.
 
-`sudp` lets an autonomous **Requester** *propose* a secret-backed operation,
-an **Authorizer** *authorize* exactly that operation, and a **Custodian**
-*perform* it — without the Requester ever seeing reusable authority over
-the secret. The unit of delegation is one **use**, not the secret.
+sudp lets an autonomous **Requester** (R) propose a secret-backed
+operation, an **Authorizer** (A) authorize exactly that operation, and a
+**Custodian** (T) perform it. The unit of delegation is one **use**, not
+the secret.
 
 ```text
                   ┌─────────────────────────┐
@@ -33,33 +32,20 @@ the secret. The unit of delegation is one **use**, not the secret.
    └──────────────┘      └───────────────┘       └──────────────┘
 ```
 
-`R` never receives the secret `s`. `T` only spends `s` on operations `A`
-has authorized. Reusable authority does not cross `R`'s boundary — even
-if `R` is fully compromised (prompt injection, runtime shim, etc.).
+R never sees `s` and gains no reusable authority over it — even if R is
+fully compromised (prompt injection, runtime shim, etc.).
 
 ## Packages
 
-| Role | Source | Published as | Notes |
-|------|--------|--------------|-------|
-| **Custodian** (T) | [`custodian/rust`](custodian/rust/) | [`sudp`](https://crates.io/crates/sudp) on crates.io | full protocol implementation |
-| **Authorizer** (A) | [`authorizer/ts`](authorizer/ts/) | [`@sudp-protocol/authorizer`](https://www.npmjs.com/package/@sudp-protocol/authorizer) on npm | β / KDF / AEAD; cross-language byte-anchored against the Custodian |
-| **Requester** (R) | [`requester/ts`](requester/ts/) | [`@sudp-protocol/requester`](https://www.npmjs.com/package/@sudp-protocol/requester) on npm | wire-shape types + op builders only — no crypto, no HTTP, no framework |
-
-```
-sudp/
-  custodian/rust/      ← T  (Rust)
-  authorizer/ts/       ← A  (TypeScript, browser / passkey / HSM)
-  requester/ts/        ← R  (TypeScript, agent-side types + builders)
-  examples/            ← runnable cross-process demo
-  custodian/rust/CHANGELOG.md, authorizer/ts/, requester/ts/ CHANGELOGs
-  LICENSE, SECURITY.md
-```
+| Role | Source | Published as |
+|------|--------|--------------|
+| **Custodian** (T) | [`custodian/rust`](custodian/rust/) | [`sudp`](https://crates.io/crates/sudp) on crates.io |
+| **Authorizer** (A) | [`authorizer/ts`](authorizer/ts/) | [`@sudp-protocol/authorizer`](https://www.npmjs.com/package/@sudp-protocol/authorizer) on npm |
+| **Requester** (R) | [`requester/ts`](requester/ts/) | [`@sudp-protocol/requester`](https://www.npmjs.com/package/@sudp-protocol/requester) on npm |
 
 ## Try it
 
-Prerequisites: a Rust toolchain (1.85+, via [rustup](https://rustup.rs))
-and Node.js 20+. The first run downloads cargo + npm dependencies; later
-runs reuse the build cache.
+Prerequisites: Rust 1.85+ (via [rustup](https://rustup.rs)) and Node.js 20+.
 
 ```bash
 git clone https://github.com/xhyumiracle/sudp
@@ -67,34 +53,24 @@ cd sudp/examples/protocol-demo
 ./run.sh
 ```
 
-The script builds all three packages, spawns the Rust Custodian binary,
-and runs a Node script that plays the Requester and Authorizer roles.
-Output is colour-coded by role and prints every wire interaction. The
-demo finishes with an adversarial sanity check — the Requester tampers
-with the operation after the Authorizer signs, and the Custodian rejects
-with `AuthorizationInvalid`.
+Builds all three packages, spawns the Custodian, runs R + A in a Node
+script, prints every wire interaction colour-coded by role, and finishes
+with an adversarial check (R tampers with `o` after A signs → T rejects).
 
-For API-level usage, see the per-package READMEs:
-[`custodian/rust`](custodian/rust/) ·
-[`authorizer/ts`](authorizer/ts/) ·
-[`requester/ts`](requester/ts/).
+For API-level usage: [`custodian/rust`](custodian/rust/) ·
+[`authorizer/ts`](authorizer/ts/) · [`requester/ts`](requester/ts/).
 
-## Building an agent against SUDP
+## Building an agent
 
 Agent authors typically need only
-[`@sudp-protocol/requester`](requester/ts/): typed `Operation` builders
-(`useOp`, `exportOp`, etc.) and shape validators, with **no transport**
-— wire it up to whatever HTTP client your stack uses to reach the
-Custodian. SUDP intentionally does not ship framework adapters; the
-Requester is the most replaceable layer and every agent framework writes
-this glue its own way.
+[`@sudp-protocol/requester`](requester/ts/) — typed `Operation` builders
+and shape validators, no transport, no framework adapters. The Requester
+is the most replaceable layer; every agent framework wires its own glue.
 
 ## Cross-language alignment
 
-Every byte string the Authorizer produces and the Custodian expects MUST
-agree. The conformance suite locks each primitive at the byte level —
-and the role examples above use exactly the same primitives, so any
-composite shape stays aligned by construction.
+Conformance vectors lock the Authorizer's bytes against the Custodian at
+the byte level — composite shapes stay aligned by construction.
 
 | Surface | Rust anchor | TS anchor |
 |---------|-------------|-----------|
@@ -106,7 +82,7 @@ composite shape stays aligned by construction.
 | `seal_ad` layout | `phases::setup::seal_ad` (setup tests) | `conformance.test.ts: seal_ad: DS_SEAL ‖ ver_be` |
 | `WRAP_VERSION` ↔ `CURRENT_VERSION` | `state::CURRENT_VERSION = 1` | `conformance.test.ts: WRAP_VERSION matches Rust...` |
 
-Run both halves locally; CI does the same on every push:
+CI runs both halves on every push:
 
 ```bash
 cd custodian/rust && cargo test
@@ -114,12 +90,10 @@ cd authorizer/ts  && npm test
 cd requester/ts   && npm test
 ```
 
-Either side failing means the cross-language protocol invariant broke.
-
 ## Pre-1.0
 
-Wire format and trait shapes may still move before the 1.0 cut. See each
-package's own CHANGELOG for details. Pin minor versions in production:
+Wire format and trait shapes may still move before 1.0. Pin minor
+versions in production:
 
 ```toml
 # Cargo.toml
@@ -134,8 +108,6 @@ sudp = "~0.1"
 
 ## Citing
 
-If you use SUDP in academic work, please cite the paper:
-
 ```bibtex
 @misc{yu2026sudp,
   title         = {SUDP: Secret-Use Delegation Protocol for Agentic Systems},
@@ -148,15 +120,13 @@ If you use SUDP in academic work, please cite the paper:
 }
 ```
 
-Plain text:
-
 > Xiaohang Yu, Hejia Geng, Xinmeng Zeng, and William Knottenbelt.
 > "SUDP: Secret-Use Delegation Protocol for Agentic Systems."
 > arXiv preprint arXiv:2604.24920 (2026).
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for the responsible-disclosure process.
+See [SECURITY.md](SECURITY.md).
 
 ## License
 
