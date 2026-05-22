@@ -3,7 +3,7 @@
 > Authorizer-side primitives for **SUDP** — the Secret-Use Delegation Protocol.
 
 The Authorizer is the party that authorizes a secret-backed operation by
-signing the binding hash `β = SHA-256(DS_BIND ‖ 0x00 ‖ r ‖ H(canonical(o)))`
+signing the binding hash `β = SHA-256(DS_BIND ‖ r ‖ H(canonical(o)))`
 with an authenticator. This package ships the carrier-agnostic crypto the
 Authorizer needs, plus an optional WebAuthn adapter.
 
@@ -68,15 +68,6 @@ const wrapped = aeadSeal(Wc, plaintext, wrapBindingAd(credentialId));
 // 4) Ship `{ assertionToWire(cred), wrapped, ... }` to the custodian as
 //    part of the grant.
 ```
-
-## Why a separate package?
-
-Until v0.1, every SUDP deployment manually re-implemented the canonical
-encoder, β formula, and AAD shapes on the Authorizer side, kept in
-byte-for-byte sync with the Rust crate by hand. That works until it
-doesn't — silent drift is the failure mode. This package is the single
-source of truth for the TS side, paired with a conformance suite that
-checks it agrees with the Rust crate on golden vectors.
 
 ## End-to-end protocol walkthrough
 
