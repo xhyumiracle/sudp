@@ -13,6 +13,8 @@ export type {
   Act,
   ActType,
   ActTypeBuiltin,
+  BatchGrant,
+  BatchOperations,
   Bind,
   Grant,
   GrantOpt,
@@ -23,6 +25,7 @@ export type {
 } from "./types.js";
 
 export {
+  batchOps,
   buildOp,
   customOp,
   enrollOp,
@@ -34,4 +37,11 @@ export {
 } from "./build.js";
 export type { BuildOpOpts } from "./build.js";
 
-export { isBuiltinActType, validateGrant, validateOperation } from "./validate.js";
+export {
+  isBuiltinActType,
+  isRotationClassActType,
+  validateBatchGrant,
+  validateBatchOperations,
+  validateGrant,
+  validateOperation,
+} from "./validate.js";

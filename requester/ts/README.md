@@ -13,13 +13,18 @@ compromised — so this package ships **only** the protocol-shape glue
 What's in:
 
 - TypeScript types for `Operation`, `Act`, `Bind`, `Valid`,
-  `RecipientPk`, `Grant`, `GrantOpt`, `ActType`, `Multiplicity` —
-  matching the Rust crate's wire layout one-to-one.
+  `RecipientPk`, `Grant`, `GrantOpt`, `ActType`, `Multiplicity`,
+  `BatchOperations`, `BatchGrant` — matching the Rust crate's wire
+  layout one-to-one.
 - Builders: `useOp`, `exportOp`, `writeOp`, `rotateOp`, `enrollOp`,
   `revokeOp`, `customOp` — each returns a plain `Operation` object with
   sensible defaults (`iat = now`, `multiplicity = "one"`, `scope = {}`).
-- Structural validators: `validateOperation`, `validateGrant` — catch
-  malformed shapes before they hit the wire.
+- Batch helpers: `batchOps([...])` — validates the array (non-empty,
+  ≤ 1 rotation-class op per batch) and returns the wire-shape
+  `BatchOperations`.
+- Structural validators: `validateOperation`, `validateGrant`,
+  `validateBatchOperations`, `validateBatchGrant`, plus
+  `isBuiltinActType` / `isRotationClassActType` predicates.
 
 What's **not** in, and why:
 
@@ -90,6 +95,21 @@ const op = customOp("co-sign", {
 // The Custodian's deployment is responsible for dispatching "co-sign".
 // sudp's built-in execute_use / execute_export / execute_lifecycle
 // reject custom types with ActTypeMismatch.
+```
+
+For a batch (multiple operations under one Authorizer signature):
+
+```ts
+import { batchOps, useOp, writeOp } from "@sudp-protocol/requester";
+
+const ops = batchOps([
+  useOp({ target: "env.api_key", redeemer: "T" }),
+  useOp({ target: "env.refresh_token", redeemer: "T" }),
+  writeOp({ target: "env.last_used", scope: { v: "now" }, redeemer: "T" }),
+]);
+// `ops` is wire-ready as a JSON array. SUDP rejects batches with more
+// than one rotation-class operation (`write` / `rotate` / `enroll` /
+// `revoke`); `batchOps` enforces this client-side so you fail fast.
 ```
 
 ## End-to-end protocol walkthrough

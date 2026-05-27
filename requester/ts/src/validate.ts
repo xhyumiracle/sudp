@@ -6,11 +6,18 @@
  * and Custodian sides (in `@sudp-protocol/authorizer` and `sudp` Rust respectively).
  */
 
-import type { Operation, Grant, ActType } from "./types.js";
+import type { ActType, BatchGrant, BatchOperations, Grant, Operation } from "./types.js";
 
 const BUILTIN_ACT_TYPES: ReadonlySet<string> = new Set([
   "use",
   "export",
+  "write",
+  "rotate",
+  "enroll",
+  "revoke",
+]);
+
+const ROTATION_CLASS_ACT_TYPES: ReadonlySet<string> = new Set([
   "write",
   "rotate",
   "enroll",
@@ -96,4 +103,56 @@ export function validateGrant(grant: unknown): asserts grant is Grant {
  */
 export function isBuiltinActType(t: ActType): boolean {
   return BUILTIN_ACT_TYPES.has(t);
+}
+
+/**
+ * True iff the act type mutates sealed state (`write` / `rotate` /
+ * `enroll` / `revoke`). Rotation-class ops drive `W*_next` and at most
+ * one is allowed per batch — see {@link validateBatchOperations}.
+ */
+export function isRotationClassActType(t: ActType): boolean {
+  return ROTATION_CLASS_ACT_TYPES.has(t);
+}
+
+/**
+ * Throw if `ops` is not a well-formed batch:
+ *  - must be a non-empty array
+ *  - each element must pass {@link validateOperation}
+ *  - at most one rotation-class op (sudp's `Error::BatchMultipleRotationOps`)
+ */
+export function validateBatchOperations(ops: unknown): asserts ops is BatchOperations {
+  ensure(Array.isArray(ops), "BatchOperations", "must be an array");
+  ensure(ops.length > 0, "BatchOperations", "must contain at least one operation");
+  let rotationCount = 0;
+  for (let i = 0; i < ops.length; i++) {
+    try {
+      validateOperation(ops[i]);
+    } catch (e) {
+      throw new Error(`validate BatchOperations[${i}]: ${(e as Error).message}`);
+    }
+    const op = ops[i] as Operation;
+    if (isRotationClassActType(op.act.type)) {
+      rotationCount++;
+    }
+  }
+  ensure(
+    rotationCount <= 1,
+    "BatchOperations",
+    "at most one rotation-class operation per batch (Write/Rotate/Enroll/Revoke); sudp rejects this with BatchMultipleRotationOps",
+  );
+}
+
+/**
+ * Throw if `grant` is not a well-formed {@link BatchGrant}.
+ */
+export function validateBatchGrant(grant: unknown): asserts grant is BatchGrant {
+  ensure(isPlainObject(grant), "BatchGrant", "must be a plain object");
+  validateBatchOperations((grant as Record<string, unknown>).ops);
+  ensure(typeof grant.r === "string" && grant.r.length > 0, "BatchGrant.r", "must be a non-empty base64 string");
+  ensure(typeof grant.credential_id === "string" && grant.credential_id.length > 0, "BatchGrant.credential_id", "must be a non-empty base64 string");
+  ensure(typeof grant.wrapping_key === "string" && grant.wrapping_key.length > 0, "BatchGrant.wrapping_key", "must be a non-empty base64 string");
+  ensure(grant.assertion !== undefined, "BatchGrant.assertion", "must be present (authenticator-specific shape)");
+  if (grant.opt !== undefined) {
+    ensure(isPlainObject(grant.opt), "BatchGrant.opt", "if present, must be a plain object");
+  }
 }

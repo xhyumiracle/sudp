@@ -116,3 +116,33 @@ export interface Grant<TAssertion = unknown> {
   assertion: TAssertion;
   opt?: GrantOpt;
 }
+
+/**
+ * Batch of operations approved by a single signature.
+ *
+ * On the wire this is just a JSON array of {@link Operation}s — matches
+ * the Rust crate's `serde(transparent)` `BatchOperations(Vec<Operation>)`.
+ * β generalises to `H(DS_BIND ‖ r ‖ H(canonical(ops)))`.
+ *
+ * SUDP enforces at most **one rotation-class** operation per batch
+ * (`write` / `rotate` / `enroll` / `revoke`), because a single
+ * authenticator invocation produces a single `W*_next`. See
+ * {@link validateBatchOperations} from this package and
+ * `Error::BatchMultipleRotationOps` on the Custodian side.
+ */
+export type BatchOperations = Operation[];
+
+/**
+ * Batch counterpart of {@link Grant}: the operation field is a
+ * {@link BatchOperations} array instead of a single {@link Operation}.
+ * Otherwise identical (same `r`, `cid`, `W_c`, `σ`, optional rotation
+ * key) — one signature covers the whole batch.
+ */
+export interface BatchGrant<TAssertion = unknown> {
+  ops: BatchOperations;
+  r: string;
+  credential_id: string;
+  wrapping_key: string;
+  assertion: TAssertion;
+  opt?: GrantOpt;
+}

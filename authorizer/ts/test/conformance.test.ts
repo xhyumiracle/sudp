@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aeadEncrypt,
   canonicalize,
+  computeBatchBinding,
   computeBinding,
   deriveWrappingKey,
   DS_BIND,
@@ -72,6 +73,26 @@ describe("conformance vectors", () => {
     // in custodian/rust/src/beta.rs.
     expect(toHex(beta)).toBe(
       "6c43ba079b5316ac73e8f35e3ce59bfdefb9dee1fc964fcb39406c26169be954",
+    );
+  });
+
+  // ─── Batch β = SHA-256(DS_BIND ‖ r ‖ H(canonical(ops))) ──────────────
+
+  it("batch β: matches Rust's compute_beta_from_canonical over BatchOperations", async () => {
+    const r = new Uint8Array(32); // all-zero
+    const op = (target: string) => ({
+      act: { type: "use", target, scope: {} },
+      bind: { redeemer: "custodian-id" },
+      valid: { iat: 1_700_000_000, multiplicity: "one" },
+    });
+    const ops = [op("env.api_key"), op("env.refresh_token")];
+    const beta = await computeBatchBinding(DS_BIND, r, ops);
+    expect(beta.byteLength).toBe(32);
+    // Anchored against
+    // `batch_beta_matches_ts_authorizer_conformance_vector`
+    // in custodian/rust/src/beta.rs.
+    expect(toHex(beta)).toBe(
+      "e066d4be3f6761a995491222d7bb7896cc13944c1f460233e082b3f21f95059f",
     );
   });
 

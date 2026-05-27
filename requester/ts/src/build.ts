@@ -16,6 +16,7 @@ import type {
   Operation,
   RecipientPk,
 } from "./types.js";
+import { validateBatchOperations } from "./validate.js";
 
 /**
  * Options shared by every op builder. `target`, `redeemer`, and `iat`
@@ -115,3 +116,16 @@ export const revokeOp = (opts: BuildOpOpts): Operation => buildOp("revoke", opts
  */
 export const customOp = (actTypeName: string, opts: BuildOpOpts): Operation =>
   buildOp(actTypeName, opts);
+
+/**
+ * Assemble a batch from individual {@link Operation}s with a single-call
+ * structural check (non-empty array, at most one rotation-class op).
+ * Returns the same array — `BatchOperations` is a JSON array on the wire.
+ *
+ * Equivalent to validating with {@link validateBatchOperations}; this
+ * helper just makes the construction site read intentionally.
+ */
+export function batchOps(ops: Operation[]): Operation[] {
+  validateBatchOperations(ops);
+  return ops;
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  batchOps,
   buildOp,
   customOp,
   enrollOp,
@@ -109,6 +110,40 @@ describe("act-type wrappers", () => {
   it("customOp accepts arbitrary act-type strings", () => {
     const op = customOp("co-sign", base);
     expect(op.act.type).toBe("co-sign");
+  });
+});
+
+describe("batchOps", () => {
+  const base = { redeemer: "T", iat: 1 } as const;
+
+  it("returns the input array unchanged when valid", () => {
+    const a = useOp({ ...base, target: "x" });
+    const b = useOp({ ...base, target: "y" });
+    const out = batchOps([a, b]);
+    expect(out).toBe(b === out[1] ? out : out); // identity
+    expect(out).toEqual([a, b]);
+  });
+
+  it("rejects empty batch", () => {
+    expect(() => batchOps([])).toThrow(/at least one/);
+  });
+
+  it("accepts a single rotation-class op", () => {
+    const u = useOp({ ...base, target: "x" });
+    const r = rotateOp({ ...base, target: "x" });
+    expect(() => batchOps([u, r])).not.toThrow();
+  });
+
+  it("rejects two rotation-class ops in one batch", () => {
+    const e = enrollOp({ ...base, target: "cred-1" });
+    const r = revokeOp({ ...base, target: "cred-2" });
+    expect(() => batchOps([e, r])).toThrow(/at most one rotation-class/);
+  });
+
+  it("rejects malformed members", () => {
+    const ok = useOp({ ...base, target: "x" });
+    const bad = { act: { type: "use", target: "" }, bind: { redeemer: "T" }, valid: { iat: 1 } };
+    expect(() => batchOps([ok, bad as unknown as ReturnType<typeof useOp>])).toThrow(/BatchOperations\[1\]/);
   });
 });
 

@@ -152,4 +152,49 @@ mod tests {
             "6c43ba079b5316ac73e8f35e3ce59bfdefb9dee1fc964fcb39406c26169be954"
         );
     }
+
+    /// Cross-language conformance anchor for batch β. Same shape as the
+    /// single-op anchor above, but for `BatchOperations`. The TS side
+    /// produces the same hex via `computeBatchBinding(DS_BIND, r, ops)`.
+    #[test]
+    fn batch_beta_matches_ts_authorizer_conformance_vector() {
+        use crate::BatchOperations;
+
+        let r = [0u8; 32];
+        let op = |target: &str| Operation {
+            act: Act {
+                kind: ActType::Use,
+                target: target.into(),
+                scope: serde_json::json!({}),
+            },
+            bind: Bind {
+                redeemer: "custodian-id".into(),
+                recipient: None,
+            },
+            valid: Valid::single_use(1_700_000_000, None),
+        };
+        let ops = BatchOperations::new(vec![op("env.api_key"), op("env.refresh_token")]);
+
+        let canonical = ops.canonical_bytes().unwrap();
+        let canonical_str = std::str::from_utf8(&canonical).unwrap();
+        assert_eq!(
+            canonical_str,
+            "[\
+             {\"act\":{\"scope\":{},\"target\":\"env.api_key\",\"type\":\"use\"},\
+             \"bind\":{\"redeemer\":\"custodian-id\"},\
+             \"valid\":{\"iat\":1700000000,\"multiplicity\":\"one\"}},\
+             {\"act\":{\"scope\":{},\"target\":\"env.refresh_token\",\"type\":\"use\"},\
+             \"bind\":{\"redeemer\":\"custodian-id\"},\
+             \"valid\":{\"iat\":1700000000,\"multiplicity\":\"one\"}}\
+             ]",
+            "batch canonical-encoder shape changed; TS conformance vector must change too"
+        );
+
+        let beta = compute_beta_from_canonical::<Sha256>(DS_BIND, &r, &canonical);
+        let hex: String = beta.iter().map(|b| format!("{:02x}", b)).collect();
+        assert_eq!(
+            hex,
+            "e066d4be3f6761a995491222d7bb7896cc13944c1f460233e082b3f21f95059f"
+        );
+    }
 }

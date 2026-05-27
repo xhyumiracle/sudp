@@ -16,9 +16,10 @@ shapes, and the wrap-key derivation.
 
 ```
 @sudp-protocol/authorizer            ← carrier-agnostic protocol primitives
-  canonicalize, sha256, computeBinding,
+  canonicalize, sha256,
+  computeBinding, computeBatchBinding,
   deriveWrappingKey, wrapBindingAd, sealAd,
-  aeadSeal, aeadOpen, base64url helpers,
+  aeadSeal, aeadOpen, aeadEncrypt, base64url helpers,
   DS_BIND / DS_WRAP / DS_SEAL constants
 
 @sudp-protocol/authorizer/webauthn   ← WebAuthn-specific adapter
