@@ -70,6 +70,8 @@ const wrapped = aeadSeal(Wc, plaintext, wrapBindingAd(credentialId));
 //    part of the grant.
 ```
 
+For batch grants, swap `computeBinding` for `computeBatchBinding(DS_BIND, r, ops)` — same math, one signature covers `ops = (o_1, …, o_n)`.
+
 ## End-to-end protocol walkthrough
 
 For how this package fits with the Rust Custodian and the Requester

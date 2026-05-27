@@ -9,6 +9,7 @@ trait shapes may still move before 1.0.
 
 ### Added
 
+- Cross-language batch-β conformance vector pinning `H(canonical(ops))` against `@sudp-protocol/authorizer`'s `computeBatchBinding`.
 - `primitives::derive_wrapping_key<K: Kdf>(user_key, prf_salt, credential_id, version)`:
   convenience helper that produces the per-credential wrapping key
   `W_c = KDF(y_c; prf_salt, DS_WRAP ‖ credential_id ‖ ver_be)`. Matches the
