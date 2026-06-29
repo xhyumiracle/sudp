@@ -109,7 +109,7 @@ fn main() -> Result<()> {
     let prf_salt = vec![0xBBu8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"sk_live_top_secret".to_vec());
+    protected.put_secret("env.api_key", b"sk_live_top_secret".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> =
         Custodian::new("demo-custodian");

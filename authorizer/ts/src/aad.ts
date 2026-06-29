@@ -15,7 +15,7 @@ export const WRAP_VERSION = 0x0001;
  *     DS_WRAP ‖ credentialId ‖ ver_be(u16, big-endian)
  *
  * Bound as associated data when sealing/opening `K̂_c` under `W_c`, so a
- * peer-wrapped record cannot be substituted across credentials or versions.
+ * per-credential-wrapped record cannot be substituted across credentials or versions.
  */
 export function wrapBindingAd(
   credentialId: Uint8Array,

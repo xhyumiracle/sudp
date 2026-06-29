@@ -4,7 +4,7 @@
 //!     III.0  unwrap K with W* ; M ← Dec_K(C) ; s_o := M[target]
 //!     III.1  use:        present s_o to E ; return only Release(o) = ρ_out
 //!     III.2  export:     emit π sealed under recipient pk
-//!     III.3  lifecycle:  apply o to M ; sample K' ; reseal ; rewrap peers
+//!     III.3  lifecycle:  apply o to M ; sample K' ; reseal ; rewrap authenticators
 //! ```
 //!
 //! Each dispatch path is a separate function so callers can pick exactly the
@@ -25,7 +25,7 @@ use crate::Result;
 ///
 /// Returns the decrypted protected state `M` together with `K` (held in a
 /// [`Zeroizing`] buffer that wipes on drop). The caller MUST drop the returned
-/// [`OpenedState`] as soon as it is no longer needed; `M.targets` carry
+/// [`OpenedState`] as soon as it is no longer needed; `M.secrets` carry
 /// authority-bearing plaintext.
 pub fn open<S: PrimitiveSuite>(
     redeemed: &RedeemedGrant,
@@ -95,7 +95,7 @@ where
         return Err(crate::Error::ActTypeMismatch("expected ActType::Use"));
     }
     let opened = open::<S>(&redeemed, sealed)?;
-    let s_o = opened.m.target(&redeemed.o.act.target)?;
+    let s_o = opened.m.secret(&redeemed.o.act.target)?;
     handler(&redeemed.o.act.target, s_o)
 }
 
@@ -149,7 +149,7 @@ where
     }
 
     let opened = open::<S>(&redeemed, sealed)?;
-    let s_o = opened.m.target(&redeemed.o.act.target)?;
+    let s_o = opened.m.secret(&redeemed.o.act.target)?;
 
     let op_canonical = redeemed.o.canonical_bytes()?;
     let op_hash = <S::Hash as crate::primitives::Hash>::hash(&op_canonical);
@@ -202,8 +202,9 @@ pub fn open_export<S: PrimitiveSuite, K: Kem>(
 /// Mutation closure for Phase III.3: transform `M` into `M'`.
 ///
 /// The closure is the deployment-specific bridge between `o.act` and `M`:
-/// for `write`, it patches the target value; for `rotate`, it is the identity;
-/// for `enroll`, it adds an entry to the peer map; for `revoke`, it drops one.
+/// for `write`, it patches the stored secret; for `rotate`, it is the identity;
+/// for `enroll`, it adds an entry to the authenticator map; for `revoke`, it
+/// drops one.
 pub type Mutation = dyn FnOnce(&mut ProtectedState) -> Result<()>;
 
 /// Result of [`execute_lifecycle`]: the new sealed state together with the
@@ -229,7 +230,7 @@ pub struct LifecycleOutput {
 /// 3. Sample fresh `K'`.
 /// 4. Update the acting credential's salt to `η^next_{c*}` (from
 ///    `o.act.scope`) and rewrap `K'` under `W*_next`.
-/// 5. Rewrap `K'` under every peer `W_c` from `M.peers`.
+/// 5. Rewrap `K'` under every authenticator `W_c` from `M.authenticators`.
 /// 6. Re-seal `M'` under `K'`.
 /// 7. Build the new `Σ'`.
 ///
@@ -296,21 +297,23 @@ pub fn execute_lifecycle<S: PrimitiveSuite>(
                 prf_salt: next_prf_salt.to_vec(),
                 wrapped_key: wrapped,
             });
-            // Update the in-state peer map with the new W_c for this credential.
+            // Update the in-state authenticator map with the new W_c for this
+            // credential.
             opened
                 .m
-                .peers
+                .authenticators
                 .insert(acting_cid_b64.clone(), w_next.clone());
         } else {
-            // Peer credential: rewrap K' under W_c from M.peers.
+            // Non-acting credential: rewrap K' under W_c from M.authenticators.
             //
             // Membership invariant: a credential remains in Σ iff it is still
-            // in M.peers after `mutation`. Revocation expresses itself by
-            // removing the credential from M.peers; we then drop it from
+            // in M.authenticators after `mutation`. Revocation expresses itself
+            // by removing the credential from M.authenticators; we then drop it
+            // from
             // `new_credentials` here. The registry/credentials-list cleanup
             // that the revoke layer adds is for `Reg` only.
             let cid_b64 = base64::engine::general_purpose::STANDARD.encode(&cred.credential_id);
-            let Some(w_c) = opened.m.peers.get(&cid_b64) else {
+            let Some(w_c) = opened.m.authenticators.get(&cid_b64) else {
                 continue;
             };
             let binding = WrapBinding {
@@ -389,8 +392,8 @@ pub fn add_credential_after_lifecycle<S: PrimitiveSuite, A: crate::primitives::A
 /// Phase III.3 revocation helper.
 ///
 /// Removes a credential from `Reg`, from the credentials list, and from the
-/// peer map (the peer-map removal must also happen inside the lifecycle
-/// `mutation` so that `Σ'.ciphertext` reflects the change).
+/// authenticator map (the authenticator-map removal must also happen inside the
+/// lifecycle `mutation` so that `Σ'.ciphertext` reflects the change).
 pub fn remove_credential_after_lifecycle(
     mut state: SealedState,
     removed_credential_id: &[u8],

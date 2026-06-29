@@ -129,7 +129,7 @@ async function runDemo(): Promise<void> {
     secret_b64: bytesToB64(AUTH_SECRET),
     prf_salt_b64: bytesToB64(PRF_SALT),
     wrapping_key_b64: bytesToB64(WRAPPING_KEY),
-    initial_targets: {
+    initial_secrets: {
       "env.api_key": bytesToB64(new TextEncoder().encode("sk_live_top_secret")),
     },
   });
@@ -203,7 +203,7 @@ async function runTamperCheck(): Promise<void> {
     secret_b64: bytesToB64(AUTH_SECRET),
     prf_salt_b64: bytesToB64(PRF_SALT),
     wrapping_key_b64: bytesToB64(WRAPPING_KEY),
-    initial_targets: {
+    initial_secrets: {
       "env.api_key": bytesToB64(new TextEncoder().encode("sk_live_top_secret")),
     },
   });

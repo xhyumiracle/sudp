@@ -171,7 +171,7 @@ fn handle_setup(state: &Mutex<AppState>, body: &str) -> std::result::Result<Valu
         secret_b64: String,
         prf_salt_b64: String,
         wrapping_key_b64: String,
-        initial_targets: HashMap<String, String>,
+        initial_secrets: HashMap<String, String>,
     }
 
     let req: Req = serde_json::from_str(body).map_err(|e| e.to_string())?;
@@ -181,9 +181,9 @@ fn handle_setup(state: &Mutex<AppState>, body: &str) -> std::result::Result<Valu
     let wrapping_key = WrappingKey::from_bytes(b64_decode(&req.wrapping_key_b64)?);
 
     let mut protected = ProtectedState::new();
-    for (k, v_b64) in &req.initial_targets {
+    for (k, v_b64) in &req.initial_secrets {
         let v = b64_decode(v_b64)?;
-        protected.put_target(k, v);
+        protected.put_secret(k, v);
     }
 
     let mut s = state.lock().map_err(|e| e.to_string())?;

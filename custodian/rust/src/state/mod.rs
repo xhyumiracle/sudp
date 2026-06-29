@@ -11,6 +11,6 @@ mod protected;
 mod registry;
 mod sealed;
 
-pub use protected::{PeerMap, ProtectedState};
+pub use protected::{AuthenticatorMap, ProtectedState};
 pub use registry::Registry;
 pub use sealed::{PrfSalt, SealedCredential, SealedState, Version, WrappedKey, CURRENT_VERSION};

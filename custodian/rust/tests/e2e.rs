@@ -97,7 +97,7 @@ fn phase1_setup_then_phase23_use() {
     let credential_id = b"cred-001".to_vec();
     let auth_secret = fresh_secret();
     let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"sk_live_top_secret".to_vec());
+    protected.put_secret("env.api_key", b"sk_live_top_secret".to_vec());
 
     let wrapping_key = WrappingKey::from_bytes(vec![0x11u8; 32]);
     let prf_salt = vec![0x22u8; 32];
@@ -281,7 +281,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
     let next_prf_salt = vec![0xC1u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"v1".to_vec());
+    protected.put_secret("env.api_key", b"v1".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("custodian-E");
     let sealed_v1 = custodian
@@ -322,7 +322,7 @@ fn lifecycle_write_rotates_keys_and_updates_target() {
             &sealed_v1,
             &next_prf_salt,
             Box::new(|m: &mut ProtectedState| {
-                m.put_target("env.api_key", b"v2".to_vec());
+                m.put_secret("env.api_key", b"v2".to_vec());
                 Ok(())
             }),
         )
@@ -384,8 +384,8 @@ fn batch_grant_validates_all_ops_under_one_signature() {
     let prf_salt = vec![0xD1u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.a", b"alpha".to_vec());
-    protected.put_target("env.b", b"bravo".to_vec());
+    protected.put_secret("env.a", b"alpha".to_vec());
+    protected.put_secret("env.b", b"bravo".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("custodian-F");
     let sealed = custodian
@@ -455,7 +455,7 @@ fn enroll_adds_credential_and_it_can_redeem() {
     let salt_b = vec![0x21u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"secret-v1".to_vec());
+    protected.put_secret("env.api_key", b"secret-v1".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("custodian-G");
     let sealed = custodian
@@ -655,8 +655,8 @@ fn rotate_preserves_targets_but_rewraps_state_key() {
     let next_prf_salt = vec![0xE3u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"unchanged-secret".to_vec());
-    protected.put_target("env.other", b"other-secret".to_vec());
+    protected.put_secret("env.api_key", b"unchanged-secret".to_vec());
+    protected.put_secret("env.other", b"other-secret".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("custodian-R");
     let sealed_v1 = custodian
@@ -763,7 +763,7 @@ fn custom_act_type_passes_redemption_and_caller_dispatches() {
     let prf_salt = vec![0xF1u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.signing_key", b"raw-private-key-bytes".to_vec());
+    protected.put_secret("env.signing_key", b"raw-private-key-bytes".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("custodian-X");
     let sealed = custodian
@@ -812,7 +812,7 @@ fn custom_act_type_passes_redemption_and_caller_dispatches() {
     // Manual dispatch path: caller calls `open` directly to pull s_o,
     // bypassing the built-in execute_* helpers.
     let opened = custodian.open(&redeemed, &sealed).unwrap();
-    let s_o = opened.m.target("env.signing_key").unwrap();
+    let s_o = opened.m.secret("env.signing_key").unwrap();
     assert_eq!(s_o, b"raw-private-key-bytes");
     // (Deployment would now use s_o to compute its custom co-sign output.)
     drop(opened);
@@ -859,7 +859,7 @@ mod export_hpke_test {
         let prf_salt = vec![0x91u8; 32];
 
         let mut protected = ProtectedState::new();
-        protected.put_target("env.api_key", b"sk_live_exported".to_vec());
+        protected.put_secret("env.api_key", b"sk_live_exported".to_vec());
 
         let mut custodian: Custodian<StdPrimitives, MockAuthenticator> =
             Custodian::new("custodian-EXP");
@@ -950,7 +950,7 @@ fn xdevice_envelope_round_trips_grant() {
     let prf_salt = vec![0x71u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.api_key", b"xd-secret".to_vec());
+    protected.put_secret("env.api_key", b"xd-secret".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("custodian-XD");
     let sealed = custodian
@@ -1074,7 +1074,7 @@ fn one_shot_execution_is_typed_redeemed_grant_is_consumed() {
     let prf_salt = vec![0xA2u8; 32];
 
     let mut protected = ProtectedState::new();
-    protected.put_target("env.x", b"secret".to_vec());
+    protected.put_secret("env.x", b"secret".to_vec());
 
     let mut custodian: Custodian<StdPrimitives, MockAuthenticator> = Custodian::new("c-SHOT");
     let sealed = custodian

@@ -64,10 +64,12 @@ pub fn run<S: PrimitiveSuite, A: Authenticator>(
     let k = Zeroizing::new(S::Csprng::random_32());
 
     // 3. Seal M.
-    // Inject the first peer entry so subsequent rotations can rewrap K under
-    // a known W_c (default peer-map recoverability policy).
+    // Inject the first authenticator entry so subsequent rotations can rewrap K
+    // under a known W_c (default recoverability policy).
     let cid_b64 = base64::engine::general_purpose::STANDARD.encode(&credential.credential_id);
-    protected.peers.insert(cid_b64, wrapping_key.clone());
+    protected
+        .authenticators
+        .insert(cid_b64, wrapping_key.clone());
     let m_bytes = protected.to_canonical()?;
     let nonce = S::Aead::fresh_nonce();
     let mut ciphertext = Vec::with_capacity(nonce.len() + m_bytes.len() + S::Aead::TAG_LEN);

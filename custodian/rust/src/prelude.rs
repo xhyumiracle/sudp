@@ -20,8 +20,8 @@ pub use crate::primitives::{
     PrimitiveSuite, WrapBinding,
 };
 pub use crate::state::{
-    PeerMap, PrfSalt, ProtectedState, Registry, SealedCredential, SealedState, Version, WrappedKey,
-    CURRENT_VERSION,
+    AuthenticatorMap, PrfSalt, ProtectedState, Registry, SealedCredential, SealedState, Version,
+    WrappedKey, CURRENT_VERSION,
 };
 
 #[cfg(feature = "std-primitives")]

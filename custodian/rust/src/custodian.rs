@@ -254,8 +254,8 @@ where
     /// Phase III.3 — `enroll`: lifecycle followed by attaching the new
     /// credential to `Reg` and `Σ.credentials`.
     ///
-    /// The new credential's wrapping key `W_+` enters `M.peers` inside the
-    /// lifecycle mutation so subsequent rotations can rewrap `K` under it;
+    /// The new credential's wrapping key `W_+` enters `M.authenticators` inside
+    /// the lifecycle mutation so subsequent rotations can rewrap `K` under it;
     /// the new credential's `K̂_+` is wrapped under the same `K'` produced
     /// by this lifecycle step (no re-open needed).
     #[allow(clippy::too_many_arguments)]
@@ -273,8 +273,8 @@ where
         let new_credential_id = new_cred.credential_id;
         let new_public_key = new_cred.public_key;
 
-        let new_wrapping_key_for_peer = new_wrapping_key.clone();
-        let new_credential_id_for_peer = new_credential_id.clone();
+        let new_wrapping_key_for_authenticator = new_wrapping_key.clone();
+        let new_credential_id_for_authenticator = new_credential_id.clone();
 
         let LifecycleOutput {
             sealed_state,
@@ -284,9 +284,10 @@ where
             sealed,
             next_prf_salt,
             Box::new(move |m: &mut ProtectedState| {
-                let cid_b64 =
-                    base64::engine::general_purpose::STANDARD.encode(&new_credential_id_for_peer);
-                m.peers.insert(cid_b64, new_wrapping_key_for_peer);
+                let cid_b64 = base64::engine::general_purpose::STANDARD
+                    .encode(&new_credential_id_for_authenticator);
+                m.authenticators
+                    .insert(cid_b64, new_wrapping_key_for_authenticator);
                 Ok(())
             }),
         )?;
@@ -302,7 +303,7 @@ where
     }
 
     /// Phase III.3 — `revoke`: lifecycle followed by removing the target
-    /// credential from `Reg`, `Σ.credentials`, and `M.peers`.
+    /// credential from `Reg`, `Σ.credentials`, and `M.authenticators`.
     ///
     /// ## Crate-level fail-safes
     ///
@@ -341,14 +342,15 @@ where
             return Err(crate::Error::WouldOrphanState);
         }
 
-        let revoked_for_peer = revoked_credential_id.clone();
+        let revoked_for_authenticator = revoked_credential_id.clone();
         let LifecycleOutput { sealed_state, .. } = execute_lifecycle::<S>(
             redeemed,
             sealed,
             next_prf_salt,
             Box::new(move |m: &mut ProtectedState| {
-                let cid_b64 = base64::engine::general_purpose::STANDARD.encode(&revoked_for_peer);
-                m.peers.remove(&cid_b64);
+                let cid_b64 =
+                    base64::engine::general_purpose::STANDARD.encode(&revoked_for_authenticator);
+                m.authenticators.remove(&cid_b64);
                 Ok(())
             }),
         )?;

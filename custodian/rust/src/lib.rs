@@ -10,7 +10,7 @@
 //! - [`operation`], [`grant`] — the A↔T contract (canonical `Operation`) and the
 //!   one-shot authorization artifact (`Grant`, `RedeemedGrant`).
 //! - [`state`] — sealed and protected state structures (`SealedState`,
-//!   `ProtectedState`, the peer map).
+//!   `ProtectedState`, the authenticator map).
 //! - [`phases`] — Phase I (setup), Phase II (grant validation), Phase III
 //!   (consumption dispatch).
 //! - [`custodian`] — façade over the phases.
@@ -60,6 +60,6 @@ pub use freshness::{FreshnessStore, FreshnessToken, InMemoryFreshness};
 pub use grant::{Grant, GrantOpt, RedeemedGrant, WrappingKey};
 pub use operation::{Act, ActType, Bind, Multiplicity, Operation, RecipientPk, Valid};
 pub use state::{
-    PeerMap, PrfSalt, ProtectedState, Registry, SealedCredential, SealedState, Version, WrappedKey,
-    CURRENT_VERSION,
+    AuthenticatorMap, PrfSalt, ProtectedState, Registry, SealedCredential, SealedState, Version,
+    WrappedKey, CURRENT_VERSION,
 };

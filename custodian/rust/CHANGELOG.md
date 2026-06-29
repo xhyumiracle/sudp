@@ -100,7 +100,19 @@ Initial release.
 - Phase III.2 standard composition helpers: `seal_export` / `open_export`
   implementing `(K_d, ct_d) ← Encap(pk); k_d ← KDF(K_d; ⊥, H(o));
   δ ← Enc_{k_d}(s_o; H(o))`.
-- Per-write rotation discipline with default peer-map recoverability.
+- Per-write rotation discipline with default authenticator-map recoverability.
+
+### Changed
+
+- **Renamed `ProtectedState` fields and value type** for first-glance clarity:
+  `peers` → `authenticators` (type alias `PeerMap` → `AuthenticatorMap`),
+  `targets` → `secrets`, and value type `TargetValue` → `SecretValue`; accessors
+  `target()` / `put_target()` / `remove_target()` →
+  `secret()` / `put_secret()` / `remove_secret()`. The operation-side
+  `Act.target` identifier is unchanged. This renames the sealed-state canonical
+  JSON keys (`peers` → `authenticators`, `targets` → `secrets`), so states
+  sealed by earlier code will not parse — a wire-format break, acceptable
+  pre-1.0 with no migration path (re-seal from source).
 
 ### Security-relevant choices
 
@@ -117,10 +129,10 @@ Initial release.
   form across endpoints and would otherwise be a substitution vector
   against `H(o)`.
 - `ProtectedState::to_canonical` writes directly to a `Zeroizing<Vec<u8>>`
-  without going through `serde_json::Value`. Target plaintexts and peer
+  without going through `serde_json::Value`. Secret plaintexts and authenticator
   wrapping keys no longer leak through non-zeroizing intermediates during
   serialization.
-- `WrappingKey` and `TargetValue` zeroize their inner `Vec<u8>` on drop.
+- `WrappingKey` and `SecretValue` zeroize their inner `Vec<u8>` on drop.
   `K` and `K'` are held in `Zeroizing<Vec<u8>>` while in the custodian
   boundary.
 - AEAD-as-wrap binds `(credential_id, version)` as associated data via
