@@ -7,6 +7,8 @@ trait shapes may still move before 1.0.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-29
+
 ### Added
 
 - Cross-language batch-β conformance vector pinning `H(canonical(ops))` against `@sudp-protocol/authorizer`'s `computeBatchBinding`.
@@ -144,5 +146,6 @@ Initial release.
 - Cross-device envelope AEAD AD = `H(pk_A ‖ pk_T ‖ r)`; substitution of
   either ephemeral public key fails authentication.
 
-[Unreleased]: https://github.com/xhyumiracle/sudp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/xhyumiracle/sudp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/xhyumiracle/sudp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/xhyumiracle/sudp/releases/tag/v0.1.0
