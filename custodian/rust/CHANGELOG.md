@@ -7,6 +7,27 @@ trait shapes may still move before 1.0.
 
 ## [Unreleased]
 
+### Added
+
+- **Per-record seal/unseal primitive** (`state::seal_record` / `state::unseal_record`,
+  `state::SealCtx`, `state::record_aad`, `state::RECORD_SUITE_XCHACHA20POLY1305`):
+  a pure byte-in/byte-out codec for storing a vault as **many independently-encrypted
+  records** (one ciphertext per item) instead of a single `SealedState` blob — the
+  foundation for multi-device per-item concurrent writes. The crate builds the AEAD
+  associated data from a structured `SealCtx { domain, vault, id, version }`
+  (length-prefixed, suite-tagged), so `unseal_record` detects cross-vault splicing,
+  cross-id substitution, version/ciphertext mismatch, and cross-domain confusion.
+  The per-record AEAD key is HKDF-derived from the vault key under the new
+  `DS_ITEM = "sudp/v1/item"` label (key separation from the caller's `HMAC_K(name)`
+  id derivation). No new cryptography — XChaCha20-Poly1305 + HKDF-SHA-256 as before.
+  Sealed layout: `suite(1) ‖ nonce(24) ‖ ciphertext ‖ tag(16)`.
+  All record management (id derivation, version comparison, merge, tombstones, GC,
+  the record set) stays in the caller. NOTE: version-in-AAD detects version
+  *mismatch*, not rollback — anti-rollback is the caller's monotonic per-id version
+  store. `@sudp-protocol/authorizer`'s `sealRecord`/`unsealRecord` are byte-aligned
+  and verified by shared conformance vectors.
+- `primitives::DomainSeparator::Item` and `primitives::domain::DS_ITEM`.
+
 ## [0.2.0] — 2026-06-29
 
 ### Added

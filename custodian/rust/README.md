@@ -67,6 +67,38 @@ Runnable variants:
   root — full three-role flow over HTTP with the TypeScript Authorizer
   and Requester.
 
+## Per-record sealing (per-item vaults)
+
+For deployments that store a vault as **many independently-encrypted records**
+(one ciphertext per item) instead of a single `SealedState` blob — the model
+that makes multi-device concurrent writes safe — use the per-record codec
+directly:
+
+```rust
+use sudp::{seal_record, unseal_record, SealCtx, StdPrimitives};
+
+let ctx = SealCtx {
+    domain:  "item",              // purpose separation ("item" / "keyset" / …)
+    vault:   vault_id,            // anti cross-vault splice
+    id:      &record_id,          // opaque; callers typically store HMAC_K(name)
+    version: &seq.to_be_bytes(),  // opaque, monotonic-per-id ordering value
+};
+let sealed = seal_record::<StdPrimitives>(&k, &ctx, plaintext)?; // suite ‖ nonce ‖ ct ‖ tag
+let opened = unseal_record::<StdPrimitives>(&k, &ctx, &sealed)?; // rejects any ctx mismatch
+```
+
+The crate builds the AEAD associated data from `SealCtx` and binds it to the
+ciphertext, so a record can't be opened under a different vault / id / version /
+domain. The per-record AEAD key is HKDF-derived from `k` under a dedicated label
+(key separation from any `HMAC_K(name)` id derivation). Everything *above* the
+codec is the caller's: id derivation, version comparison, conflict resolution,
+tombstones, GC, the record set. `version` is **opaque** — a server-assigned
+sequence + CAS, a version-vector, an HLC, or LWW all sit on top unchanged.
+Binding `version` detects a version/ciphertext *mismatch*, not rollback; keep a
+monotonic per-id version store and enforce freshness there.
+`@sudp-protocol/authorizer` mirrors this as `sealRecord` / `unsealRecord`,
+byte-anchored by shared conformance vectors.
+
 ## The `Custodian<S, A, F>` façade
 
 ```text
@@ -86,7 +118,8 @@ Phase methods:
 | III — bounded use | `execute_use`, `execute_export`, `execute_lifecycle` |
 
 Wire types: `Operation`, `Grant<A>`, `RedeemedGrant<A>`, `SealedState`,
-`ProtectedState`, `BatchOperations`, `BatchGrant<A>`.
+`ProtectedState`, `BatchOperations`, `BatchGrant<A>`. Per-record codec:
+`SealCtx`, `seal_record`, `unseal_record`, `record_aad`.
 
 ## Feature flags
 

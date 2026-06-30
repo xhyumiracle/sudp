@@ -2,6 +2,16 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Per-record seal/unseal — authorizer-side mirror of the Rust crate's per-item
+  vault primitive: `sealRecord` / `unsealRecord` / `recordAad` / `deriveItemKey`,
+  the `SealCtx` type, `DS_ITEM`, and `RECORD_SUITE_XCHACHA20POLY1305`. Byte-anchored
+  against the Rust crate via shared conformance vectors (canonical AAD, HKDF item
+  key, and sealed framing). Adds `u32beBytes` / `u64beBytes` byte helpers.
+
 ## [0.1.1] — 2026-05-23
 
 ### Added

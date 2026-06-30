@@ -15,6 +15,8 @@ export {
   utf8,
   concatBytes,
   u16beBytes,
+  u32beBytes,
+  u64beBytes,
   bytesToB64Url,
   b64UrlToBytes,
 } from "./bytes.js";
@@ -25,3 +27,12 @@ export { computeBatchBinding, computeBinding, DS_BIND } from "./binding.js";
 export { deriveWrappingKey } from "./kdf.js";
 export { wrapBindingAd, sealAd, DS_WRAP, DS_SEAL, WRAP_VERSION } from "./aad.js";
 export { aeadEncrypt, aeadSeal, aeadOpen } from "./aead.js";
+export {
+  recordAad,
+  deriveItemKey,
+  sealRecord,
+  unsealRecord,
+  DS_ITEM,
+  RECORD_SUITE_XCHACHA20POLY1305,
+  type SealCtx,
+} from "./record.js";

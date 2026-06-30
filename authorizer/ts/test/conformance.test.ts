@@ -4,10 +4,19 @@ import {
   canonicalize,
   computeBatchBinding,
   computeBinding,
+  concatBytes,
+  deriveItemKey,
   deriveWrappingKey,
   DS_BIND,
   DS_WRAP,
+  recordAad,
+  RECORD_SUITE_XCHACHA20POLY1305,
+  type SealCtx,
   sealAd,
+  sealRecord,
+  u64beBytes,
+  unsealRecord,
+  utf8,
   wrapBindingAd,
   WRAP_VERSION,
 } from "../src/index.js";
@@ -157,5 +166,74 @@ describe("conformance vectors", () => {
 
   it("DS_WRAP literal", () => {
     expect(decode(DS_WRAP)).toBe("sudp/v1/wrap");
+  });
+});
+
+/**
+ * Per-record seal/unseal conformance — pinned against the Rust anchors in
+ * `custodian/rust/src/state/record.rs` (tests `conformance_record_aad`,
+ * `conformance_item_key`, `conformance_sealed_fixed_nonce`). Fixed inputs, no
+ * random nonce, so the bytes are deterministic. Change one side → change both.
+ */
+describe("per-record conformance vectors", () => {
+  const K = new Uint8Array(32).fill(0x11);
+  const NONCE = new Uint8Array(24).fill(0x22);
+  const PT = utf8("the lazy dog jumps over...");
+  const ctx: SealCtx = {
+    domain: "item",
+    vault: utf8("vault-7"),
+    id: new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd]),
+    // opaque version bytes; recommended u64-big-endian encoding of 0x0102030405060708
+    version: u64beBytes(0x0102030405060708n),
+  };
+
+  it("recordAad: suite ‖ lp(DS_ITEM) ‖ lp(domain) ‖ lp(vault) ‖ lp(id) ‖ lp(version)", () => {
+    const aad = recordAad(RECORD_SUITE_XCHACHA20POLY1305, ctx);
+    expect(toHex(aad)).toBe(
+      "010000000c737564702f76312f6974656d000000046974656d000000077661756c742d3700000004aabbccdd000000080102030405060708",
+    );
+  });
+
+  it("deriveItemKey: HKDF-SHA256(K, salt='', info=DS_ITEM) matches Rust derive_item_key", async () => {
+    const kAead = await deriveItemKey(K);
+    expect(toHex(kAead)).toBe(
+      "d9e525d7f8047ad0c47bc270f44e22a7a4038d2fb7df863924128481efe83823",
+    );
+  });
+
+  it("sealed framing (fixed nonce) matches Rust conformance_sealed_fixed_nonce", async () => {
+    const kAead = await deriveItemKey(K);
+    const aad = recordAad(RECORD_SUITE_XCHACHA20POLY1305, ctx);
+    const ct = aeadEncrypt(kAead, NONCE, PT, aad); // ct ‖ tag
+    const sealed = concatBytes(new Uint8Array([RECORD_SUITE_XCHACHA20POLY1305]), NONCE, ct);
+    expect(toHex(sealed)).toBe(
+      "0122222222222222222222222222222222222222222222222291131d0f0ef48770f42cb1bd5ef3915479ad080de28b148392796ccd6f88a3eeb1c5fe3a3bff54a793be",
+    );
+    // And it opens through the real public path.
+    expect(await unsealRecord(K, ctx, sealed)).toEqual(PT);
+  });
+
+  it("sealRecord → unsealRecord round-trips (random nonce)", async () => {
+    const sealed = await sealRecord(K, ctx, PT);
+    expect(sealed[0]).toBe(RECORD_SUITE_XCHACHA20POLY1305);
+    expect(await unsealRecord(K, ctx, sealed)).toEqual(PT);
+  });
+
+  it("unseal rejects a wrong-vault context", async () => {
+    const sealed = await sealRecord(K, ctx, PT);
+    await expect(unsealRecord(K, { ...ctx, vault: utf8("vault-X") }, sealed)).rejects.toThrow();
+  });
+
+  it("unseal rejects a wrong-version context", async () => {
+    const sealed = await sealRecord(K, ctx, PT);
+    await expect(
+      unsealRecord(K, { ...ctx, version: u64beBytes(0x0102030405060709n) }, sealed),
+    ).rejects.toThrow();
+  });
+
+  it("unseal rejects an unknown suite tag", async () => {
+    const sealed = await sealRecord(K, ctx, PT);
+    sealed[0] = 0x02;
+    await expect(unsealRecord(K, ctx, sealed)).rejects.toThrow();
   });
 });

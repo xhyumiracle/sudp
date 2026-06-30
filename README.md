@@ -95,6 +95,7 @@ the byte level — composite shapes stay aligned by construction.
 | AEAD encrypt (fixed nonce) | `aead_matches_ts_authorizer_conformance_vector` | `conformance.test.ts: aeadEncrypt: matches Rust...` |
 | `wrap_ad` layout | `WrapBinding::to_canonical_ad` tests | `conformance.test.ts: wrap_ad: DS_WRAP ‖ cid ‖ ver_be` |
 | `seal_ad` layout | `phases::setup::seal_ad` (setup tests) | `conformance.test.ts: seal_ad: DS_SEAL ‖ ver_be` |
+| per-record seal (`record_aad` / `K_aead` / sealed framing) | `state::record::tests::conformance_*` | `conformance.test.ts: per-record conformance vectors` |
 | `WRAP_VERSION` ↔ `CURRENT_VERSION` | `state::CURRENT_VERSION = 1` | `conformance.test.ts: WRAP_VERSION matches Rust...` |
 
 CI runs both halves on every push:

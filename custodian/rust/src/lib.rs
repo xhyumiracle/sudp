@@ -60,6 +60,7 @@ pub use freshness::{FreshnessStore, FreshnessToken, InMemoryFreshness};
 pub use grant::{Grant, GrantOpt, RedeemedGrant, WrappingKey};
 pub use operation::{Act, ActType, Bind, Multiplicity, Operation, RecipientPk, Valid};
 pub use state::{
-    AuthenticatorMap, PrfSalt, ProtectedState, Registry, SealedCredential, SealedState, Version,
-    WrappedKey, CURRENT_VERSION,
+    record_aad, seal_record, unseal_record, AuthenticatorMap, PrfSalt, ProtectedState, Registry,
+    SealCtx, SealedCredential, SealedState, Version, WrappedKey, CURRENT_VERSION,
+    RECORD_SUITE_XCHACHA20POLY1305,
 };

@@ -20,7 +20,8 @@ shapes, and the wrap-key derivation.
   computeBinding, computeBatchBinding,
   deriveWrappingKey, wrapBindingAd, sealAd,
   aeadSeal, aeadOpen, aeadEncrypt, base64url helpers,
-  DS_BIND / DS_WRAP / DS_SEAL constants
+  sealRecord, unsealRecord, recordAad, deriveItemKey,   ← per-record (per-item) seal
+  DS_BIND / DS_WRAP / DS_SEAL / DS_ITEM constants
 
 @sudp-protocol/authorizer/webauthn   ← WebAuthn-specific adapter
   prfToUserKey(prfOutput) → 32-byte y_c
@@ -71,6 +72,14 @@ const wrapped = aeadSeal(Wc, plaintext, wrapBindingAd(credentialId));
 ```
 
 For batch grants, swap `computeBinding` for `computeBatchBinding(DS_BIND, r, ops)` — same math, one signature covers `ops = (o_1, …, o_n)`.
+
+For **per-item vaults** (a vault stored as many independently-encrypted records
+instead of one blob), seal/open a single record with `sealRecord(k, ctx, pt)` /
+`unsealRecord(k, ctx, sealed)`, where `ctx: SealCtx` is `{ domain, vault, id,
+version }`. sudp binds `ctx` into the AEAD AAD (anti cross-vault / cross-id /
+version-mismatch); the record body, id derivation, and conflict resolution are
+the caller's. Byte-identical to the Rust crate's `seal_record` — see the
+[conformance map](../../README.md#cross-language-alignment).
 
 ## End-to-end protocol walkthrough
 

@@ -8,9 +8,11 @@
 //! - `ver` — wrapping epoch identifier.
 
 mod protected;
+mod record;
 mod registry;
 mod sealed;
 
 pub use protected::{AuthenticatorMap, ProtectedState};
+pub use record::{record_aad, seal_record, unseal_record, SealCtx, RECORD_SUITE_XCHACHA20POLY1305};
 pub use registry::Registry;
 pub use sealed::{PrfSalt, SealedCredential, SealedState, Version, WrappedKey, CURRENT_VERSION};

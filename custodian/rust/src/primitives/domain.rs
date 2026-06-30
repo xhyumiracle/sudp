@@ -25,6 +25,15 @@ pub const DS_DELIVERY: &[u8] = b"sudp/v1/delivery";
 /// Cross-device handshake AEAD label.
 pub const DS_XD_ENC: &[u8] = b"sudp/v1/xd-enc";
 
+/// Per-record (per-item) sealing label.
+///
+/// Used two ways by the per-record primitive (`state::seal_record`):
+/// 1. as the HKDF `info` deriving the per-record AEAD key `K_aead` from the
+///    vault key `K`, so `K_aead` never shares raw bytes with any other use of
+///    `K` (e.g. the caller's `HMAC_K(name)` record-id derivation), and
+/// 2. as the leading label inside the canonical per-record AAD.
+pub const DS_ITEM: &[u8] = b"sudp/v1/item";
+
 /// Convenience enum surfacing labels at the public API.
 ///
 /// Callers normally use the raw `&'static [u8]` constants above; this enum
@@ -43,6 +52,8 @@ pub enum DomainSeparator {
     Delivery,
     /// `DS_xd_enc` — cross-device handshake AEAD.
     XdEnc,
+    /// `DS_item` — per-record (per-item) sealing.
+    Item,
 }
 
 impl DomainSeparator {
@@ -54,6 +65,7 @@ impl DomainSeparator {
             DomainSeparator::Seal => DS_SEAL,
             DomainSeparator::Delivery => DS_DELIVERY,
             DomainSeparator::XdEnc => DS_XD_ENC,
+            DomainSeparator::Item => DS_ITEM,
         }
     }
 }

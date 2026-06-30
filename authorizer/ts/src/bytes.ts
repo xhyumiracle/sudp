@@ -23,6 +23,31 @@ export function u16beBytes(n: number): Uint8Array {
   return new Uint8Array([(n >> 8) & 0xff, n & 0xff]);
 }
 
+export function u32beBytes(n: number): Uint8Array {
+  if (!Number.isInteger(n) || n < 0 || n > 0xffffffff) {
+    throw new Error(`u32beBytes: out of range: ${n}`);
+  }
+  return new Uint8Array([(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]);
+}
+
+/**
+ * 8-byte big-endian encoding of a `u64`. Takes a `bigint` so the full unsigned
+ * 64-bit range is exact (a `number` is only safe to 2^53). MUST match the Rust
+ * crate's `u64::to_be_bytes`.
+ */
+export function u64beBytes(n: bigint): Uint8Array {
+  if (n < 0n || n > 0xffffffffffffffffn) {
+    throw new Error(`u64beBytes: out of range: ${n}`);
+  }
+  const out = new Uint8Array(8);
+  let v = n;
+  for (let i = 7; i >= 0; i--) {
+    out[i] = Number(v & 0xffn);
+    v >>= 8n;
+  }
+  return out;
+}
+
 const B64URL_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 const B64URL_LOOKUP = (() => {
   const t = new Int8Array(256).fill(-1);
